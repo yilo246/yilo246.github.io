@@ -12,129 +12,190 @@
             padding: 0 20px;
         }
         h1 {
-            text-align: center;
+            text-align: left;
+            margin: 30px 0 10px;
+            font-size: 2.2em;
+        }
+        .title-underline {
+            border-bottom: 2px solid #444;
+            margin: 15px 0 25px;
+            width: 200px;
         }
         #message {
-            width: 100%;
-            height: 80px;
-            background-color: #222;
-            color: #fff;
-            border: 1px solid #444;
-            padding: 10px;
-            margin-bottom: 10px;
-            resize: none;
-        }
-        #message::placeholder {
-            color: #666;
-            font-style: italic;
-        }
-        #submitBtn {
-            background-color: #4CAF50;
+            background-color: #1a1a1a;
             color: white;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
+            border: 1px solid #444;
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            margin: 10px 0;
         }
-        #submitBtn:hover {
-            background-color: #45a049;
+        button {
+            background-color: #333;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px 20px;
+            cursor: pointer;
+            margin-bottom: 30px;
+            transition: opacity 0.3s;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .comment {
-            border-bottom: 1px solid #333;
-            padding: 10px 0;
-            margin: 10px 0;
+            border-left: 3px solid #444;
+            padding: 12px 20px;
+            margin: 20px 0;
+            font-size: 0.9em;
         }
         .comment-header {
-            color: #999;
-            font-size: 0.9em;
-            margin-bottom: 5px;
+            color: #888;
+            margin-bottom: 8px;
+            font-size: 0.85em;
         }
-        #error {
-            color: #ff5555;
-            margin: 10px 0;
+        .rules {
+            color: #999;
+            margin: 15px 0 25px;
+            font-size: 0.95em;
+        }
+        #loading {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 3px solid #444;
+            border-top-color: transparent;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        .error {
+            color: #ff4444;
+            padding: 15px;
+            border: 1px solid #ff4444;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
     <h1>宜络的秘密留言板</h1>
-    <div id="form">
+    <div class="rules">
+        <p>不错啊，你居然能找到这里来。</p>
+        <p>说点什么吧。</p>
+        <p>• 只许说一句（140字以内）</p>
+        <p>• 发送后不可修改或删除（这玩意比石碑耐用）</p>
+    </div>
+    <div class="title-underline"></div>
+
+    <div id="form" style="display: none;">
         <textarea id="message" placeholder="畅所欲言..." maxlength="140"></textarea>
         <button onclick="submitMessage()" id="submitBtn">发送</button>
     </div>
-    <div id="error"></div>
+
     <div id="comments"></div>
+    <div id="loading">
+        <div class="spinner"></div>
+    </div>
+    <div id="errorMsg" class="error" style="display: none;"></div>
 
     <script>
-        // 定义仓库和 Issue ID（需要替换为你的实际值）
-        const REPO = "yilo246/yilo246.github.io"; // 格式：用户名/仓库名
-        const ISSUE_ID = "1"; // 替换为你的 Issue 编号
+        // 🔧 必须修改的配置 🔧
+        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';          // 步骤1获取
+        const CLIENT_SECRET = 'ghp_你的密钥';             // 步骤1生成
+        const REPO = 'yilo246/my-secret-board';          // 私有仓库
+        const ISSUE_ID = 1;                              // Issue编号
 
-        // 显示错误信息
-        function showError(message) {
-            document.getElementById('error').innerText = message;
-        }
+        // 🛠️ 核心功能
+        let isSubmitting = false;
 
-        // 处理 fetch 响应
-        async function handleResponse(response) {
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || '请求失败');
-            }
-            return response.json();
-        }
-
-        // 提交留言
-        async function submitMessage() {
+        async function checkAuth() {
+            showLoading();
             try {
-                // 获取 token
+                const code = new URLSearchParams(window.location.search).get('code');
+                if (code) {
+                    const tokenData = await fetch(
+                        `https://github.com/login/oauth/access_token?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&code=${code}`,
+                        { method: 'POST', headers: { Accept: 'application/json' } }
+                    ).then(handleResponse);
+                    
+                    if (tokenData.access_token) {
+                        localStorage.setItem('github_token', tokenData.access_token);
+                        window.location.href = window.location.origin;
+                        return;
+                    }
+                }
+                
+                if (!localStorage.getItem('github_token')) {
+                    window.location.href = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=public_repo`;
+                }
+            } catch (error) {
+                showError('登录失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function submitMessage() {
+            if (isSubmitting) return;
+            isSubmitting = true;
+            document.getElementById('submitBtn').disabled = true;
+            showLoading();
+
+            try {
                 const token = localStorage.getItem('github_token');
-                if (!token) {
-                    localStorage.removeItem('github_token');
-                    showError('请先登录 GitHub');
+                const message = document.getElementById('message').value.trim();
+
+                if (!message) {
+                    showError('内容不能为空');
                     return;
                 }
 
-                // 获取用户输入
-                const message = document.getElementById('message').value;
-                if (!message.trim()) {
-                    showError('请输入留言内容');
+                const user = await fetch('https://api.github.com/user', {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).then(handleResponse);
+
+                const comments = await fetch(
+                    `https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`
+                ).then(handleResponse);
+
+                if (comments.some(c => c.user.login === user.login)) {
+                    showError('每人只能发送一次');
                     return;
                 }
 
-                // 强制使用最新时间戳
-                const now = new Date();
-                const isNight = now.getHours() >= 1 && now.getHours() < 6;
-
-                // 提交到 GitHub Issue
-                const response = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
+                await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     method: 'POST',
-                    headers: {
-                        Authorization: `token ${token}`,
-                        'Content-Type': 'application/json',
-                        'X-GitHub-Timestamp': now.toISOString()
+                    headers: { 
+                        Authorization: `token ${token}`, 
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ body: message })
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || '认证失败，请重新登录');
-                }
-
-                // 清空输入框并刷新评论
+                await loadComments();
                 document.getElementById('message').value = '';
-                showError(''); // 清空错误信息
-                loadComments();
             } catch (error) {
                 showError('发送失败: ' + error.message);
-                if (error.message.includes('Bad credentials')) {
+                if (error.message.includes('401')) {
                     localStorage.removeItem('github_token');
                     window.location.reload();
                 }
+            } finally {
+                isSubmitting = false;
+                document.getElementById('submitBtn').disabled = false;
+                hideLoading();
             }
         }
 
-        // 加载评论
         async function loadComments() {
+            showLoading();
             try {
                 const comments = await fetch(
                     `https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`
@@ -142,7 +203,7 @@
 
                 document.getElementById('comments').innerHTML = comments.map(c => {
                     const date = new Date(c.created_at);
-                    const localHour = date.getHours();
+                    const localHour = date.getHours(); // 使用本地时间
                     return `
                         <div class="comment">
                             <div class="comment-header">
@@ -156,11 +217,45 @@
                 }).join('');
             } catch (error) {
                 showError('加载失败: ' + error.message);
+            } finally {
+                hideLoading();
             }
         }
 
-        // 页面加载时自动加载评论
-        window.onload = loadComments;
+        // ⚙️ 辅助功能
+        async function handleResponse(res) {
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.message || `HTTP错误 ${res.status}`);
+            }
+            return res.json();
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(msg) {
+            const errorDiv = document.getElementById('errorMsg');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = msg;
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
+        }
+
+        // 🚀 初始化
+        (async () => {
+            try {
+                await checkAuth();
+                document.getElementById('form').style.display = 'block';
+                await loadComments();
+            } catch (error) {
+                showError('系统异常: ' + error.message);
+            }
+        })();
     </script>
 </body>
 </html>
