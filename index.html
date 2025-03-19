@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>宜络的秘密留言板</title>
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        h1 {
+            text-align: left;
+            margin: 30px 0 10px;
+            font-size: 2.2em;
+        }
+        .title-underline {
+            border-bottom: 2px solid #444;
+            margin: 15px 0 25px;
+            width: 200px;
+        }
+        #message {
+            background-color: #1a1a1a;
+            color: white;
+            border: 1px solid #444;
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #333;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px 20px;
+            cursor: pointer;
+            margin-bottom: 30px;
+            transition: opacity 0.3s;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .comment {
+            border-left: 3px solid #444;
+            padding: 12px 20px;
+            margin: 20px 0;
+            font-size: 0.9em;
+        }
+        .comment-header {
+            color: #888;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }
+        .rules {
+            color: #999;
+            margin: 15px 0 25px;
+            font-size: 0.95em;
+        }
+        #loading {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 3px solid #444;
+            border-top-color: transparent;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        .error {
+            color: #ff4444;
+            padding: 15px;
+            border: 1px solid #ff4444;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>宜络的秘密留言板</h1>
+    <div class="rules">
+        <p>不错啊，你居然能找到这里来。</p>
+        <p>说点什么吧。</p>
+        <p>• 只许说一句（140字以内）</p>
+        <p>• 发送后不可修改或删除（这玩意比石碑耐用）</p>
+    </div>
+    <div class="title-underline"></div>
+
+    <div id="form" style="display: none;">
+        <textarea id="message" placeholder="在这里写下你的秘密..." maxlength="140"></textarea>
+        <button onclick="submitMessage()" id="submitBtn">封存秘密</button>
+    </div>
+
+    <div id="comments"></div>
+    <div id="loading">
+        <div class="spinner"></div>
+    </div>
+    <div id="errorMsg" class="error" style="display: none;"></div>
+
+    <script>
+        // ======== 重要配置 ======== //
+        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
+        const CLIENT_SECRET = '你的_CLIENT_SECRET'; // 在此处替换你的真实密钥
+        const REPO = 'yilo246/my-secret-board';
+        const ISSUE_ID = 1;
+
+        // ======== 核心功能 ======== //
+        let isSubmitting = false;
+
+        async function checkAuth() {
+            showLoading();
+            try {
+                const code = new URLSearchParams(window.location.search).get('code');
+                if (code) {
+                    const tokenData = await fetch(
+                        `https://github.com/login/oauth/access_token?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&code=${code}`,
+                        { method: 'POST', headers: { Accept: 'application/json' } }
+                    ).then(handleResponse);
+                    
+                    if (tokenData.access_token) {
+                        localStorage.setItem('github_token', tokenData.access_token);
+                        window.location.href = window.location.origin;
+                        return;
+                    }
+                }
+                
+                if (!localStorage.getItem('github_token')) {
+                    window.location.href = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=public_repo`;
+                }
+            } catch (error) {
+                showError('登录失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function submitMessage() {
+            if (isSubmitting) return;
+            isSubmitting = true;
+            document.getElementById('submitBtn').disabled = true;
+            showLoading();
+
+            try {
+                const token = localStorage.getItem('github_token');
+                const message = document.getElementById('message').value.trim();
+
+                if (!message) {
+                    showError('秘密不能为空');
+                    return;
+                }
+
+                // 获取用户信息
+                const user = await fetch('https://api.github.com/user', {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).then(handleResponse);
+
+                // 检查是否已留言
+                const comments = await fetch(
+                    `https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`
+                ).then(handleResponse);
+
+                if (comments.some(c => c.user.login === user.login)) {
+                    showError('你已封存过一个秘密');
+                    return;
+                }
+
+                // 提交留言
+                await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
+                    method: 'POST',
+                    headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body: message })
+                });
+
+                await loadComments();
+                document.getElementById('message').value = '';
+            } catch (error) {
+                showError('操作失败: ' + error.message);
+            } finally {
+                isSubmitting = false;
+                document.getElementById('submitBtn').disabled = false;
+                hideLoading();
+            }
+        }
+
+        async function loadComments() {
+            showLoading();
+            try {
+                const comments = await fetch(
+                    `https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`
+                ).then(handleResponse);
+
+                document.getElementById('comments').innerHTML = comments.map(c => {
+                    const date = new Date(c.created_at);
+                    return `
+                        <div class="comment">
+                            <div class="comment-header">
+                                ${date.getHours() >= 1 && date.getHours() < 6 ? '🌙 ' : ''}
+                                ${date.toLocaleString()} · 
+                                <span style="color:#666;">@${c.user.login}</span>
+                            </div>
+                            <div>${c.body}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                showError('加载失败: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ======== 辅助函数 ======== //
+        async function handleResponse(res) {
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.message || '请求失败');
+            }
+            return res.json();
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(msg) {
+            const errorDiv = document.getElementById('errorMsg');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = msg;
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
+        }
+
+        // ======== 初始化 ======== //
+        (async () => {
+            try {
+                await checkAuth();
+                document.getElementById('form').style.display = 'block';
+                await loadComments();
+            } catch (error) {
+                showError('初始化失败: ' + error.message);
+            }
+        })();
+    </script>
+</body>
+</html>
