@@ -82,6 +82,10 @@
             border: 1px solid #ff4444;
             margin: 20px 0;
         }
+        #message::placeholder {
+            color: #666;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -106,13 +110,13 @@
     <div id="errorMsg" class="error" style="display: none;"></div>
 
     <script>
-        // 🔧 必须修改的配置 🔧
-        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';          // 步骤1获取
-        const CLIENT_SECRET = 'ghp_你的密钥';             // 步骤1生成
-        const REPO = 'yilo246/my-secret-board';          // 私有仓库
-        const ISSUE_ID = 1;                              // Issue编号
+        // ========== 已配置参数 ========== //
+        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
+        const CLIENT_SECRET = 'b0cd8522e4ad3704f789aa6062f7e91b16362b06';
+        const REPO = 'yilo246/my-secret-board';
+        const ISSUE_ID = 1;
 
-        // 🛠️ 核心功能
+        // ========== 系统核心 ========== //
         let isSubmitting = false;
 
         async function checkAuth() {
@@ -222,7 +226,7 @@
             }
         }
 
-        // ⚙️ 辅助功能
+        // ========== 辅助工具 ========== //
         async function handleResponse(res) {
             if (!res.ok) {
                 const error = await res.json();
@@ -246,7 +250,7 @@
             setTimeout(() => errorDiv.style.display = 'none', 5000);
         }
 
-        // 🚀 初始化
+        // ========== 启动系统 ========== //
         (async () => {
             try {
                 await checkAuth();
