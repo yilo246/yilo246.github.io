@@ -37,18 +37,6 @@
             border-radius: 6px;
             font-size: 16px;
         }
-        .comment {
-            background: #1a1a1a;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 8px;
-            border-left: 4px solid #333;
-        }
-        .comment-header {
-            color: #888;
-            margin-bottom: 12px;
-            font-size: 0.9em;
-        }
         #postSection {
             position: fixed;
             bottom: 20px;
@@ -80,6 +68,7 @@
             font-size: 1.1em;
             display: inline-block;
             white-space: pre-wrap;
+            text-align: left; /* 确保文字左对齐 */
         }
         .cursor {
             display: inline-block;
@@ -94,7 +83,7 @@
         }
         .shake-extra {
             display: inline-block;
-            animation: shakeExtra 0.05s;
+            animation: shakeExtra 0.1s; /* 抖动改为0.1秒 */
         }
         @keyframes shakeExtra {
             0% { transform: translate(0, 0); }
@@ -104,7 +93,7 @@
             100% { transform: translate(0, 0); }
         }
         .anonymous-user {
-            color: #98C379; /* Anonymous user颜色 */
+            color: #98C379;
         }
     </style>
 </head>
@@ -113,10 +102,6 @@
     
     <div class="rules">
         <p id="typingText"></p>
-    </div>
-
-    <div id="commentsContainer">
-        <!-- 这里可以手动添加示例评论，如果需要 -->
     </div>
 
     <div id="postSection">
@@ -138,8 +123,8 @@
         function startWithCursor() {
             titleElement.innerHTML = '<span class="cursor"></span>';
             setTimeout(() => {
-                titleElement.innerHTML = '<span class="cursor"></span>'; // 闪烁一次
-                setTimeout(typeTitle, 800); // 闪烁两次后开始标题（0.8s * 2）
+                titleElement.innerHTML = '<span class="cursor"></span>';
+                setTimeout(typeTitle, 800);
             }, 800);
         }
 
@@ -155,22 +140,24 @@
                     setTimeout(() => {
                         titleElement.innerHTML = titleText + titleExtra;
                         setTimeout(() => {
-                            typeMainText(); // 开始正文
-                        }, 1500); // “（1）”后停 recrystallization顿1.5秒
-                    }, 50); // 抖动持续0.05秒
-                }, 500); // “宜络的彩蛋”后停顿0.5秒
+                            typeMainText();
+                        }, 1500); // “（1）”后停顿1.5秒
+                    }, 100); // 抖动持续0.1秒
+                }, 500);
                 titleIndex++;
             }
         }
 
         // 正文打字机效果
-        const mainText = "不错啊，你居然能找到这里\n事实上，我还没有想好彩蛋的内容\n";
+        const mainText = "不错啊，你居然能找到这里\n事实上，我还没有想好彩蛋的内容\n所以，怎么称呼？\n";
         const typingText = document.getElementById("typingText");
         let mainIndex = 0;
-        const punctuation = ["，", "。"];
+        const punctuation = { "，": 500, "？": 750, "。": 750, "—": 750, "…": 1500 };
         const brackets = ["（", "）"];
         const submitBtn = document.getElementById("submitBtn");
         const messageInput = document.getElementById("message");
+        let userResponseCount = 0;
+        let awaitingResponse = false;
 
         function typeMainText() {
             if (mainIndex < mainText.length) {
@@ -178,16 +165,17 @@
                 const currentChar = mainText.charAt(mainIndex);
                 mainIndex++;
                 if (currentChar === "\n") {
-                    setTimeout(typeMainText, 750); // 换行后停顿0.75秒
-                } else if (punctuation.includes(currentChar) && !brackets.some(b => mainText.slice(0, mainIndex).endsWith(b))) {
-                    setTimeout(typeMainText, 500); // 标点后停顿0.5秒，除非紧跟括号
+                    setTimeout(typeMainText, 1000); // 换行暂停1秒
+                } else if (punctuation[currentChar] && !brackets.some(b => mainText.slice(0, mainIndex).endsWith(b))) {
+                    setTimeout(typeMainText, punctuation[currentChar]); // 标点暂停
                 } else {
-                    setTimeout(typeMainText, 50); // 正常字符50ms
+                    setTimeout(typeMainText, 50);
                 }
             } else {
-                typingText.innerHTML = mainText; // 完成后移除光标
-                submitBtn.classList.add("enabled"); // 启用发送按钮
-                enableSubmit(); // 设置发送功能
+                typingText.innerHTML = mainText;
+                submitBtn.classList.add("enabled");
+                awaitingResponse = true;
+                enableSubmit();
             }
         }
 
@@ -195,15 +183,32 @@
         function enableSubmit() {
             function submitMessage() {
                 const message = messageInput.value.trim();
-                if (message) {
-                    typingText.innerHTML += '<span class="anonymous-user">Anonymous user: </span>' + message + "\n"; // 染色
-                    messageInput.value = ""; // 清空输入框
+                if (message && !submitBtn.disabled) {
+                    submitBtn.disabled = true; // 禁用按钮
+                    typingText.innerHTML += '<span class="anonymous-user">Anonymous user: </span>' + message + "\n";
+                    messageInput.value = "";
+                    userResponseCount++;
+
+                    setTimeout(() => {
+                        if (awaitingResponse && message.toLowerCase() === "luminalis") {
+                            typingText.innerHTML += "猜猜怎么着，你触发了真正的彩蛋。这别人告诉你的还是你瞎蒙的还是你自己发现的？还是说你真叫这个名字？我觉得不太可能。行吧，不重要。重要的是彩蛋，那么彩蛋是什么呢？彩蛋是【卢米纳万岁】。这是一句暗号，能让我在人群之中一眼认出你。就是这样。好了，我要去和DeepSeek探讨哲学问题了。等你的暗号。\n：（宜络断开了连接）\n";
+                            awaitingResponse = false;
+                        } else if (awaitingResponse) {
+                            typingText.innerHTML += "好的朋友，我会尝试记住的。我才记起来，其实我还没有想好这个彩蛋里该加点什么内容。或许我会在之后加点东西？可能吧。作为一个彩蛋它的基本目的已经达到了，就是意外惊喜！或许你没有感到惊喜？但或许你能有其他什么感受？比如成就感之类的？‘哦！我找到了他的彩蛋！’就像这样。你知道吗，我就喜欢【干涉】的感觉。但也可能你什么都感受不到。\nwhatever。总而言之，恭喜你，朋友，你是一个细心的人。我饿了。期待我们的下次见面，我要去吃烤破忒头（加黄金芝士酱培根碎）了。✝薯门✝——\n：（宜络离开了）\n";
+                            awaitingResponse = false;
+                        } else if (userResponseCount < 5) {
+                            typingText.innerHTML += "（一片寂静，什么都没有发生）\n";
+                        } else {
+                            typingText.innerHTML += "（你闻到了远处飘来一股烤土豆的香气）\n";
+                        }
+                        submitBtn.disabled = false; // 重新启用按钮
+                    }, 1000); // 发送后1秒生成文字
                 }
             }
 
-            submitBtn.onclick = submitMessage; // 点击发送
+            submitBtn.onclick = submitMessage;
             messageInput.onkeydown = function(e) {
-                if (e.key === "Enter" && !e.shiftKey) { // 按Enter发送
+                if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     submitMessage();
                 }
