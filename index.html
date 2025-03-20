@@ -257,9 +257,9 @@
             }
         }
 
-        // 提交留言
+        // 提交留言（修正语法错误）
         async function submitMessage() {
-            const message = document.getElement. getElementById('message').value.trim();
+            const message = document.getElementById('message').value.trim(); // 修正这里
             if (!message) return showError('写点什么再提交吧');
 
             try {
