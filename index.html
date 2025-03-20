@@ -39,18 +39,6 @@
             border-radius: 6px;
             font-size: 16px;
         }
-        button {
-            background: #333;
-            color: #fff;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        button:hover {
-            background: #444;
-        }
         .comment {
             background: #1a1a1a;
             padding: 20px;
@@ -62,14 +50,6 @@
             color: #888;
             margin-bottom: 12px;
             font-size: 0.9em;
-        }
-        .error {
-            background: #2d0000;
-            color: #ff6666;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border: 1px solid #ff4444;
         }
     </style>
 </head>
@@ -83,213 +63,16 @@
         <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
     </div>
 
-    <div id="authSection">
-        <button id="authButton">通过 GitHub 认证</button>
-    </div>
-
-    <div id="postSection" style="display: none;">
+    <div id="postSection">
         <textarea 
             id="message" 
             placeholder="在这里写下你的故事...（别超过140字哦）" 
             maxlength="140"
         ></textarea>
-        <button onclick="submitMessage()">永久保存</button>
     </div>
 
-    <div id="commentsContainer"></div>
-    <div id="errorDisplay" class="error" style="display: none;"></div>
-
-    <script>
-        // 配置信息
-        const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 你的 Client ID
-        const CLIENT_SECRET = '32a7af2c8562298083767d5ca32d3c2b107a4429'; // 你的 Client Secret
-        const REPO = 'yilo246/my-secret-board'; // 你的用户名和留言仓库
-        const ISSUE_ID = 1; // 默认使用第一个 issue
-
-        // 认证状态管理
-        let authState = {
-            token: localStorage.getItem('gh_token') || null,
-            user: null
-        };
-
-        // 绑定按钮点击事件
-        document.getElementById('authButton').addEventListener('click', () => {
-            startAuthFlow();
-        });
-
-        // 初始化检查
-        window.addEventListener('load', () => {
-            checkAuthParams();
-        });
-
-        // 检查授权参数
-        function checkAuthParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            if (code) {
-                handleOAuthCallback(code);
-            } else if (authState.token) {
-                verifyToken();
-            }
-        }
-
-        // 启动认证流程
-        function startAuthFlow() {
-            const redirectUri = encodeURIComponent(window.location.origin);
-            const scope = encodeURIComponent('user');
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
-            window.location.assign(authUrl);
-        }
-
-        // 处理回调（授权码模式）
-        async function handleOAuthCallback(code) {
-            try {
-                const redirectUri = window.location.origin;
-                const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        client_id: CLIENT_ID,
-                        client_secret: CLIENT_SECRET,
-                        code: code,
-                        redirect_uri: redirectUri
-                    })
-                });
-
-                const tokenData = await tokenResponse.json();
-                if (tokenData.error) throw new Error(tokenData.error_description);
-
-                const accessToken = tokenData.access_token;
-                authState.token = accessToken;
-                localStorage.setItem('gh_token', accessToken);
-                
-                window.history.replaceState({}, document.title, window.location.pathname);
-                await fetchUserProfile();
-                showPostSection();
-                loadComments();
-            } catch (error) {
-                showError('认证失败，请重试');
-                clearAuth();
-            }
-        }
-
-        // 获取用户信息
-        async function fetchUserProfile() {
-            const res = await fetch('https://api.github.com/user', {
-                headers: { Authorization: `Bearer ${authState.token}` }
-            });
-            authState.user = await res.json();
-        }
-
-        // 验证 token 有效性
-        async function verifyToken() {
-            try {
-                const res = await fetch('https://api.github.com/user', {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                if (!res.ok) throw new Error('token 无效');
-                await fetchUserProfile();
-                showPostSection();
-                loadComments();
-            } catch (error) {
-                clearAuth();
-            }
-        }
-
-        // 提交留言
-        async function submitMessage() {
-            const message = document.getElementById('message').value.trim();
-            if (!message) return showError('写点什么再提交吧');
-
-            try {
-                const existing = await checkExistingComment();
-                if (existing) return showError('每人只能留言一次哦');
-                
-                await postNewComment(message);
-                document.getElementById('message').value = '';
-                loadComments();
-            } catch (error) {
-                showError('保存失败，请稍后再试');
-            }
-        }
-
-        // 检查现有留言
-        async function checkExistingComment() {
-            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                headers: { Authorization: `Bearer ${authState.token}` }
-            });
-            const comments = await res.json();
-            return comments.some(c => c.user.login === authState.user.login);
-        }
-
-        // 发布新留言
-        async function postNewComment(content) {
-            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authState.token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ body: content })
-            });
-            if (!res.ok) throw new Error('提交失败');
-        }
-
-        // 加载留言
-        async function loadComments() {
-            try {
-                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`, {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                if (!res.ok) throw new Error('加载失败');
-                
-                const comments = await res.json();
-                const html = comments.map(c => {
-                    const date = new Date(c.created_at);
-                    return `
-                        <div class="comment">
-                            <div class="comment-header">
-                                ${getMoonIcon(date)}
-                                ${date.toLocaleString('zh-CN')} · 
-                                <span style="color:#666;">@${c.user.login}</span>
-                            </div>
-                            <div>${c.body}</div>
-                        </div>
-                    `;
-                }).join('');
-                
-                document.getElementById('commentsContainer').innerHTML = html;
-            } catch (error) {
-                showError('留言加载失败');
-            }
-        }
-
-        // 辅助函数
-        function getMoonIcon(date) {
-            const hour = date.getHours();
-            return (hour >= 1 && hour < 6) ? '🌙 ' : '';
-        }
-
-        function showPostSection() {
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('postSection').style.display = 'block';
-        }
-
-        function clearAuth() {
-            localStorage.removeItem('gh_token');
-            authState = { token: null, user: null };
-            window.location.href = window.location.origin;
-        }
-
-        function showError(msg) {
-            const errorDiv = document.getElementById('errorDisplay');
-            errorDiv.textContent = msg;
-            errorDiv.style.display = 'block';
-            setTimeout(() => errorDiv.style.display = 'none', 5000);
-        }
-    </script>
+    <div id="commentsContainer">
+        <!-- 这里可以手动添加示例评论，如果需要 -->
+    </div>
 </body>
 </html>
