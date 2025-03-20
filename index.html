@@ -4,246 +4,308 @@
     <meta charset="UTF-8">
     <title>宜络的秘密留言板</title>
     <style>
+        /* 优化后的样式 */
         body {
-            background-color: #000000;
-            color: #ffffff;
-            font-family: 'Arial', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            font-family: 'Arial', 'Microsoft Yahei', sans-serif;
             max-width: 800px;
             margin: 20px auto;
             padding: 0 20px;
+            line-height: 1.6;
         }
         h1 {
-            text-align: left;
-            margin: 30px 0 10px;
-            font-size: 2.2em;
+            font-size: 2.4em;
+            margin: 40px 0 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
         }
         .rules {
-            color: #ffffff; /* 保持“不错啊，你居然能找到这里来”这句为纯白色 */
-            margin: 15px 0 25px;
-            font-size: 0.95em;
+            margin: 30px 0;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
         }
         .rule-item {
-            color: #cccccc; /* 三条规则的颜色，透明度比标题暗，但比之前亮一些 */
-        }
-        #login {
-            margin: 20px 0;
+            color: #999; /* 恢复到最开始的透明度 */
+            margin: 15px 0;
+            padding-left: 10px;
+            border-left: 3px solid #333;
         }
         #message {
-            background-color: #1a1a1a;
-            color: white;
-            border: 1px solid #444;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 15px;
+            margin: 20px 0;
             width: 100%;
-            height: 100px;
-            padding: 10px;
-            margin: 10px 0;
-        }
-        #message::placeholder {
-            color: #666;
-            font-style: italic;
+            height: 120px;
+            border-radius: 6px;
+            font-size: 16px;
         }
         button {
-            background-color: #333;
-            color: white;
-            border: 1px solid #666;
-            padding: 8px 20px;
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
             cursor: pointer;
-            margin: 10px 0;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #444;
         }
         .comment {
-            border-left: 3px solid #666;
-            padding: 12px 20px;
-            margin: 20px 0;
-            font-size: 0.9em;
+            background: #1a1a1a;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+            border-left: 4px solid #333;
         }
         .comment-header {
             color: #888;
-            margin-bottom: 8px;
-            font-size: 0.85em;
+            margin-bottom: 12px;
+            font-size: 0.9em;
         }
         .error {
-            color: #ff4444;
+            background: #2d0000;
+            color: #ff6666;
             padding: 15px;
-            border: 1px solid #ff4444;
+            border-radius: 6px;
             margin: 20px 0;
+            border: 1px solid #ff4444;
         }
     </style>
 </head>
 <body>
     <h1>宜络的秘密留言板</h1>
+    
     <div class="rules">
-        <p>不错啊，你居然能找到这里来。来吧，说点什么</p>
+        <p style="color: #fff; font-size: 1.1em;"> 不错啊，你居然能找到这里来。来吧，说点什么</p>
         <p class="rule-item">• 你只可以说一句，但上限140个字。真的有人一句话会说这么多吗</p>
         <p class="rule-item">• 你的留言会一直被保存在这里。这玩意比石碑耐用</p>
         <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
     </div>
 
-    <div id="login">
-        <button onclick="console.log('点击了登录按钮'); login()">通过 GitHub 登录</button>
+    <div id="authSection">
+        <button onclick="startAuthFlow()">通过 GitHub 认证</button>
     </div>
-    <div id="form" style="display: none;">
-        <textarea id="message" placeholder="畅所欲言..." maxlength="140"></textarea>
-        <button onclick="submitMessage()">发送</button>
+
+    <div id="postSection" style="display: none;">
+        <textarea 
+            id="message" 
+            placeholder="在这里写下你的故事...（别超过140字哦）" 
+            maxlength="140"
+        ></textarea>
+        <button onclick="submitMessage()">永久保存</button>
     </div>
-    <div id="comments"></div>
-    <div id="errorMsg" class="error" style="display: none;"></div>
+
+    <div id="commentsContainer"></div>
+    <div id="errorDisplay" class="error" style="display: none;"></div>
 
     <script>
-        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn'; // 你的 GitHub OAuth 应用的 Client ID
-        const REPO = 'yilo246/my-secret-board'; // 你的 GitHub 仓库
-        const ISSUE_ID = 1; // 你的 Issue ID
-        let token = localStorage.getItem('github_token');
-        let user = null;
+        // 配置信息（需要修改）
+        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
+        const REPO = 'yilo246/my-secret-board';
+        const ISSUE_ID = 1;
 
-        // 检查是否已登录
-        console.log('页面加载，检查已有 token:', token);
-        if (token) {
-            console.log('已有 token，隐藏登录按钮，显示表单');
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('form').style.display = 'block';
-            fetchUser();
-            loadComments();
+        // 认证状态管理
+        let authState = {
+            token: localStorage.getItem('gh_token') || null,
+            user: null
+        };
+
+        // 初始化检查
+        window.addEventListener('load', () => {
+            console.log('页面加载，检查 URL 哈希');
+            if (window.location.hash.includes('access_token')) {
+                handleOAuthCallback();
+            } else if (authState.token) {
+                verifyToken();
+            }
+        });
+
+        // 启动认证流程
+        function startAuthFlow() {
+            console.log('开始认证流程');
+            const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
+            const scope = encodeURIComponent('repo');
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
+            
+            console.log('跳转到:', authUrl);
+            window.location.href = authUrl;
         }
 
-        // 页面加载后立即检查哈希片段
-        function checkHash() {
-            const hash = window.location.hash;
-            console.log('检查哈希片段:', hash);
-            if (hash) {
-                const params = new URLSearchParams(hash.replace('#', ''));
-                const accessToken = params.get('access_token');
-                if (accessToken) {
-                    console.log('获取到 access_token:', accessToken);
-                    token = accessToken;
-                    localStorage.setItem('github_token', token);
-                    window.location.hash = '';
-                    console.log('隐藏登录按钮，显示表单');
-                    document.getElementById('login').style.display = 'none';
-                    document.getElementById('form').style.display = 'block';
-                    fetchUser();
-                    loadComments();
-                } else {
-                    console.log('哈希片段中没有 access_token');
-                }
-            } else {
-                console.log('没有哈希片段');
+        // 处理回调
+        async function handleOAuthCallback() {
+            try {
+                console.log('处理 OAuth 回调');
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const accessToken = hashParams.get('access_token');
+                
+                if (!accessToken) throw new Error('认证失败');
+                
+                authState.token = accessToken;
+                localStorage.setItem('gh_token', accessToken);
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                console.log('获取到 access_token:', accessToken);
+                await fetchUserProfile();
+                showPostSection();
+                loadComments();
+            } catch (error) {
+                showError('认证失败，请重试');
+                console.error('OAuth回调处理失败:', error);
             }
         }
 
-        // 页面加载时检查
-        window.addEventListener('load', () => {
-            console.log('window.onload 触发');
-            checkHash();
-        });
-
-        // 如果页面已经加载，立即检查（防止错过）
-        if (document.readyState === 'complete') {
-            console.log('页面已加载，立即检查哈希片段');
-            checkHash();
-        }
-
-        // 监听哈希变化（以防错过）
-        window.addEventListener('hashchange', () => {
-            console.log('哈希变化，重新检查');
-            checkHash();
-        });
-
-        // 登录函数
-        function login() {
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&response_type=token&redirect_uri=${window.location.origin}`;
-            console.log('跳转到:', authUrl);
-            setTimeout(() => {
-                window.location.replace(authUrl);
-            }, 100);
-        }
-
         // 获取用户信息
-        async function fetchUser() {
+        async function fetchUserProfile() {
             try {
                 console.log('开始获取用户信息');
                 const res = await fetch('https://api.github.com/user', {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${authState.token}` }
                 });
-                if (!res.ok) throw new Error('无法获取用户信息，状态码: ' + res.status);
-                user = await res.json();
-                console.log('用户信息获取成功:', user.login);
+                
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                
+                authState.user = await res.json();
+                console.log('用户信息获取成功:', authState.user.login);
             } catch (error) {
-                console.error('获取用户信息失败:', error.message);
-                showError('获取用户信息失败：' + error.message);
-                localStorage.removeItem('github_token');
-                window.location.reload();
+                showError('获取用户信息失败');
+                console.error('获取用户信息失败:', error);
+                clearAuth();
+            }
+        }
+
+        // 验证Token有效性
+        async function verifyToken() {
+            try {
+                console.log('验证 token 有效性');
+                const res = await fetch('https://api.github.com/user', {
+                    headers: { Authorization: `Bearer ${authState.token}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                authState.user = await res.json();
+                showPostSection();
+                loadComments();
+            } catch (error) {
+                console.error('Token 验证失败:', error);
+                clearAuth();
             }
         }
 
         // 提交留言
         async function submitMessage() {
             const message = document.getElementById('message').value.trim();
-            if (!message) return showError('留言不能为空！');
+            if (!message) return showError('写点什么再提交吧');
 
             try {
+                // 检查是否已留言
                 console.log('检查是否已留言');
-                const comments = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                }).then(res => res.json());
-                if (comments.some(c => c.user.login === user.login)) {
-                    return showError('你已经留过言了，每人只能留言一次！');
-                }
-
+                const existing = await checkExistingComment();
+                if (existing) return showError('每人只能留言一次哦');
+                
+                // 提交新留言
                 console.log('提交新留言:', message);
-                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ body: message })
-                });
-                if (!res.ok) throw new Error('提交失败，状态码: ' + res.status);
+                await postNewComment(message);
                 document.getElementById('message').value = '';
-                console.log('留言提交成功，重新加载留言');
                 loadComments();
             } catch (error) {
-                console.error('提交留言失败:', error.message);
-                showError('提交失败：' + error.message);
+                handleSubmitError(error);
             }
+        }
+
+        // 检查现有留言
+        async function checkExistingComment() {
+            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
+                headers: { Authorization: `Bearer ${authState.token}` }
+            });
+            const comments = await res.json();
+            return comments.some(c => c.user.login === authState.user.login);
+        }
+
+        // 发布新留言
+        async function postNewComment(content) {
+            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ body: content })
+            });
+            
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
         }
 
         // 加载留言
         async function loadComments() {
             try {
                 console.log('开始加载留言');
-                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`, {
+                    headers: { Authorization: `Bearer ${authState.token}` }
                 });
-                if (!res.ok) throw new Error('加载留言失败，状态码: ' + res.status);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const comments = await res.json();
+                
                 console.log('留言加载成功，数量:', comments.length);
-                document.getElementById('comments').innerHTML = comments.map(c => {
+                const html = comments.map(c => {
                     const date = new Date(c.created_at);
-                    const localHour = date.getHours();
                     return `
                         <div class="comment">
                             <div class="comment-header">
-                                ${localHour >= 1 && localHour < 6 ? '🌙 ' : ''}
-                                ${date.toLocaleString()} · 
+                                ${getMoonIcon(date)}
+                                ${date.toLocaleString('zh-CN')} · 
                                 <span style="color:#666;">@${c.user.login}</span>
                             </div>
                             <div>${c.body}</div>
                         </div>
                     `;
                 }).join('');
+                
+                document.getElementById('commentsContainer').innerHTML = html;
             } catch (error) {
-                console.error('加载留言失败:', error.message);
-                showError('加载留言失败：' + error.message);
+                showError('留言加载失败');
+                console.error('加载留言失败:', error);
             }
         }
 
-        // 显示错误信息
+        // 辅助函数
+        function getMoonIcon(date) {
+            const hour = date.getHours();
+            return (hour >= 1 && hour < 6) ? '🌙 ' : '';
+        }
+
+        function showPostSection() {
+            console.log('显示留言表单');
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('postSection').style.display = 'block';
+        }
+
+        function clearAuth() {
+            console.log('清除认证信息');
+            localStorage.removeItem('gh_token');
+            authState = { token: null, user: null };
+            window.location.reload();
+        }
+
         function showError(msg) {
             console.log('显示错误:', msg);
-            const errorDiv = document.getElementById('errorMsg');
-            errorDiv.style.display = 'block';
+            const errorDiv = document.getElementById('errorDisplay');
             errorDiv.textContent = msg;
+            errorDiv.style.display = 'block';
             setTimeout(() => errorDiv.style.display = 'none', 5000);
+        }
+
+        function handleSubmitError(error) {
+            console.error('提交失败:', error);
+            if (error.message.includes('401')) {
+                showError('认证已过期，请重新登录');
+                clearAuth();
+            } else {
+                showError('保存失败，请稍后再试');
+            }
         }
     </script>
 </body>
