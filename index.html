@@ -23,13 +23,13 @@
         .rules {
             margin: 30px 0;
             padding: 20px;
-            /* 移除背景框 */
+            /* 无背景框 */
         }
         .rule-item {
             color: #999; /* 保持最初的透明度 */
             margin: 15px 0;
             padding-left: 10px;
-            /* 之前已移除竖杠 */
+            /* 无竖杠 */
         }
         #message {
             background: #1a1a1a;
@@ -83,7 +83,7 @@
         <p style="color: #fff; font-size: 1.1em;">不错啊，你居然能找到这里来。来吧，说点什么</p>
         <p class="rule-item">• 你只可以说一句，但上限140个字。真的有人一句话会说这么多吗</p>
         <p class="rule-item">• 你的留言会一直被保存在这里。这玩意比石碑耐用</p>
-        <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
+        <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是部分是独属于夜猫子的标记</p>
     </div>
 
     <div id="authSection">
@@ -125,6 +125,15 @@
                 verifyToken();
             } else {
                 console.log('无 token，显示登录按钮');
+            }
+        });
+
+        // 监听哈希变化
+        window.addEventListener('hashchange', () => {
+            console.log('哈希变化，重新检查');
+            if (window.location.hash.includes('access_token')) {
+                console.log('检测到 access_token，处理回调');
+                handleOAuthCallback();
             }
         });
 
@@ -173,13 +182,16 @@
                     headers: { Authorization: `Bearer ${authState.token}` }
                 });
                 
-                if (!res.ok) throw new Error(`无法获取用户信息，状态码: ${res.status}`);
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(`无法获取用户信息，状态码: ${res.status}, 错误: ${errorData.message}`);
+                }
                 
                 authState.user = await res.json();
                 console.log('用户信息获取成功:', authState.user.login);
             } catch (error) {
                 console.error('获取用户信息失败:', error.message);
-                showError('获取用户信息失败');
+                showError('获取用户信息失败：' + error.message);
                 clearAuth();
             }
         }
