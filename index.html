@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>宜络的秘密留言板</title>
+    <title>宜络的彩蛋（1）</title>
     <style>
         body {
             background: #000000;
@@ -12,21 +12,19 @@
             margin: 20px 0 20px 20px;
             padding: 0;
             line-height: 1.6;
+            font-size: 16px;
         }
         h1 {
-            font-size: 2.4em;
+            font-size: 2.8em;
             margin: 40px 0 20px;
             border-bottom: 2px solid #333;
             padding-bottom: 15px;
+            display: inline-block;
+            white-space: pre;
         }
         .rules {
             margin: 30px 0;
             padding: 20px 20px 20px 0;
-        }
-        .rule-item {
-            color: #999;
-            margin: 15px 0;
-            padding-left: 0;
         }
         #message {
             background: #1a1a1a;
@@ -51,28 +49,155 @@
             margin-bottom: 12px;
             font-size: 0.9em;
         }
+        #postSection {
+            position: fixed;
+            bottom: 20px;
+            width: 760px;
+        }
+        #submitBtn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.5; /* 默认禁用样式 */
+            pointer-events: none; /* 默认禁用点击 */
+        }
+        #submitBtn.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #submitBtn:hover.enabled {
+            background: #444;
+        }
+        #typingText {
+            color: #fff;
+            font-size: 1.1em;
+            display: inline-block;
+            white-space: pre-wrap; /* 支持换行 */
+        }
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: #fff;
+            vertical-align: middle;
+            animation: blink 0.8s step-end infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .shake-extra {
+            display: inline-block;
+            animation: shakeExtra 0.1s;
+        }
+        @keyframes shakeExtra {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-3px, 2px); }
+            50% { transform: translate(3px, -2px); }
+            75% { transform: translate(-2px, 1px); }
+            100% { transform: translate(0, 0); }
+        }
     </style>
 </head>
 <body>
-    <h1>宜络的秘密留言板</h1>
+    <h1 id="titleText"></h1>
     
     <div class="rules">
-        <p style="color: #fff; font-size: 1.1em;">不错啊，你居然能找到这里。来吧，说点什么</p>
-        <p class="rule-item">• 你只可以说一句，但上限是140个字</p>
-        <p class="rule-item">• 你的留言会被一直保存在这里。这玩意可比石碑耐用</p>
-        <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
-    </div>
-
-    <div id="postSection">
-        <textarea 
-            id="message" 
-            placeholder="在这里写下你的故事...（别超过140字哦）" 
-            maxlength="140"
-        ></textarea>
+        <p id="typingText"></p>
     </div>
 
     <div id="commentsContainer">
         <!-- 这里可以手动添加示例评论，如果需要 -->
     </div>
+
+    <div id="postSection">
+        <textarea 
+            id="message" 
+            placeholder=""
+            maxlength="140"
+        ></textarea>
+        <button id="submitBtn">发送</button>
+    </div>
+
+    <script>
+        // 标题打字机效果
+        const titleText = "宜络的彩蛋";
+        const titleExtra = "（1）";
+        const titleElement = document.getElementById("titleText");
+        let titleIndex = 0;
+
+        function startWithCursor() {
+            titleElement.innerHTML = '<span class="cursor"></span>';
+            setTimeout(() => {
+                titleElement.innerHTML = '<span class="cursor"></span>'; // 闪烁一次
+                setTimeout(typeTitle, 800); // 闪烁两次后开始标题（0.8s * 2）
+            }, 800);
+        }
+
+        function typeTitle() {
+            if (titleIndex < titleText.length) {
+                titleElement.innerHTML = titleText.slice(0, titleIndex + 1) + '<span class="cursor"></span>';
+                titleIndex++;
+                setTimeout(typeTitle, 50);
+            } else if (titleIndex === titleText.length) {
+                titleElement.innerHTML = titleText + '<span class="cursor"></span>';
+                setTimeout(() => {
+                    titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
+                    setTimeout(() => {
+                        titleElement.innerHTML = titleText + titleExtra; // 移除抖动
+                        setTimeout(() => {
+                            typeMainText(); // 开始正文
+                        }, 2000); // “（1）”后停顿2秒
+                    }, 100); // 抖动持续0.1秒
+                }, 500); // “宜络的彩蛋”后停顿0.5秒
+                titleIndex++;
+            }
+        }
+
+        // 正文打字机效果
+        const mainText = "不错啊，你居然能找到这里\n"; // \n表示换行，后续内容待你指定
+        const typingText = document.getElementById("typingText");
+        let mainIndex = 0;
+        const punctuation = ["，", "。"];
+        const submitBtn = document.getElementById("submitBtn");
+
+        function typeMainText() {
+            if (mainIndex < mainText.length) {
+                typingText.innerHTML = mainText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
+                const currentChar = mainText.charAt(mainIndex);
+                mainIndex++;
+                if (currentChar === "\n") {
+                    setTimeout(typeMainText, 750); // 换行后停顿0.75秒
+                } else if (punctuation.includes(currentChar)) {
+                    setTimeout(typeMainText, 500); // 标点后停顿0.5秒
+                } else {
+                    setTimeout(typeMainText, 50); // 正常字符50ms
+                }
+            } else {
+                typingText.innerHTML = mainText; // 完成后移除光标
+                submitBtn.classList.add("enabled"); // 启用发送按钮
+                enableSubmit(); // 设置发送功能
+            }
+        }
+
+        // 发送功能
+        function enableSubmit() {
+            submitBtn.onclick = function() {
+                const message = document.getElementById("message").value.trim();
+                if (message) {
+                    typingText.innerHTML += "user: " + message + "\n"; // 显示在下一行
+                    document.getElementById("message").value = ""; // 清空输入框
+                }
+            };
+        }
+
+        // 页面加载时开始光标闪烁
+        window.onload = function() {
+            startWithCursor();
+        };
+    </script>
 </body>
 </html>
