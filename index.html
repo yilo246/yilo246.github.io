@@ -76,7 +76,7 @@
     </div>
 
     <div id="login">
-        <button onclick="login()">通过 GitHub 登录</button>
+        <button onclick="console.log('点击了登录按钮'); login()">通过 GitHub 登录</button>
     </div>
     <div id="form" style="display: none;">
         <textarea id="message" placeholder="畅所欲言..." maxlength="140"></textarea>
@@ -93,46 +93,79 @@
         let user = null;
 
         // 检查是否已登录
+        console.log('页面加载，检查已有 token:', token);
         if (token) {
+            console.log('已有 token，隐藏登录按钮，显示表单');
             document.getElementById('login').style.display = 'none';
             document.getElementById('form').style.display = 'block';
             fetchUser();
             loadComments();
         }
 
-        // 页面加载时检查 URL 中的 access_token
-        window.onload = function () {
+        // 页面加载后立即检查哈希片段
+        function checkHash() {
             const hash = window.location.hash;
+            console.log('检查哈希片段:', hash);
             if (hash) {
                 const params = new URLSearchParams(hash.replace('#', ''));
                 const accessToken = params.get('access_token');
                 if (accessToken) {
+                    console.log('获取到 access_token:', accessToken);
                     token = accessToken;
                     localStorage.setItem('github_token', token);
                     window.location.hash = '';
+                    console.log('隐藏登录按钮，显示表单');
                     document.getElementById('login').style.display = 'none';
                     document.getElementById('form').style.display = 'block';
                     fetchUser();
                     loadComments();
+                } else {
+                    console.log('哈希片段中没有 access_token');
                 }
+            } else {
+                console.log('没有哈希片段');
             }
-        };
+        }
+
+        // 页面加载时检查
+        window.addEventListener('load', () => {
+            console.log('window.onload 触发');
+            checkHash();
+        });
+
+        // 如果页面已经加载，立即检查（防止错过）
+        if (document.readyState === 'complete') {
+            console.log('页面已加载，立即检查哈希片段');
+            checkHash();
+        }
+
+        // 监听哈希变化（以防错过）
+        window.addEventListener('hashchange', () => {
+            console.log('哈希变化，重新检查');
+            checkHash();
+        });
 
         // 登录函数
         function login() {
             const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&response_type=token&redirect_uri=${window.location.origin}`;
-            window.location.href = authUrl;
+            console.log('跳转到:', authUrl);
+            setTimeout(() => {
+                window.location.replace(authUrl);
+            }, 100);
         }
 
         // 获取用户信息
         async function fetchUser() {
             try {
+                console.log('开始获取用户信息');
                 const res = await fetch('https://api.github.com/user', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                if (!res.ok) throw new Error('无法获取用户信息');
+                if (!res.ok) throw new Error('无法获取用户信息，状态码: ' + res.status);
                 user = await res.json();
+                console.log('用户信息获取成功:', user.login);
             } catch (error) {
+                console.error('获取用户信息失败:', error.message);
                 showError('获取用户信息失败：' + error.message);
                 localStorage.removeItem('github_token');
                 window.location.reload();
@@ -145,6 +178,7 @@
             if (!message) return showError('留言不能为空！');
 
             try {
+                console.log('检查是否已留言');
                 const comments = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).then(res => res.json());
@@ -152,6 +186,7 @@
                     return showError('你已经留过言了，每人只能留言一次！');
                 }
 
+                console.log('提交新留言:', message);
                 const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     method: 'POST',
                     headers: {
@@ -160,10 +195,12 @@
                     },
                     body: JSON.stringify({ body: message })
                 });
-                if (!res.ok) throw new Error('提交失败');
+                if (!res.ok) throw new Error('提交失败，状态码: ' + res.status);
                 document.getElementById('message').value = '';
+                console.log('留言提交成功，重新加载留言');
                 loadComments();
             } catch (error) {
+                console.error('提交留言失败:', error.message);
                 showError('提交失败：' + error.message);
             }
         }
@@ -171,11 +208,13 @@
         // 加载留言
         async function loadComments() {
             try {
+                console.log('开始加载留言');
                 const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                if (!res.ok) throw new Error('加载留言失败');
+                if (!res.ok) throw new Error('加载留言失败，状态码: ' + res.status);
                 const comments = await res.json();
+                console.log('留言加载成功，数量:', comments.length);
                 document.getElementById('comments').innerHTML = comments.map(c => {
                     const date = new Date(c.created_at);
                     const localHour = date.getHours();
@@ -191,12 +230,14 @@
                     `;
                 }).join('');
             } catch (error) {
+                console.error('加载留言失败:', error.message);
                 showError('加载留言失败：' + error.message);
             }
         }
 
         // 显示错误信息
         function showError(msg) {
+            console.log('显示错误:', msg);
             const errorDiv = document.getElementById('errorMsg');
             errorDiv.style.display = 'block';
             errorDiv.textContent = msg;
