@@ -86,13 +86,13 @@
     <div id="errorMsg" class="error" style="display: none;"></div>
 
     <script>
-        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
-        const REPO = 'yilo246/my-secret-board';
-        const ISSUE_ID = 1;
-        const BACKEND_URL = 'http://localhost:3000'; // 稍后替换为 Heroku URL
+        const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn'; // 你的 GitHub OAuth 应用的 Client ID
+        const REPO = 'yilo246/my-secret-board'; // 你的 GitHub 仓库
+        const ISSUE_ID = 1; // 你的 Issue ID
         let token = localStorage.getItem('github_token');
         let user = null;
 
+        // 检查是否已登录
         if (token) {
             document.getElementById('login').style.display = 'none';
             document.getElementById('form').style.display = 'block';
@@ -100,11 +100,31 @@
             loadComments();
         }
 
+        // 页面加载时检查 URL 中的 access_token
+        window.onload = function () {
+            const hash = window.location.hash;
+            if (hash) {
+                const params = new URLSearchParams(hash.replace('#', ''));
+                const accessToken = params.get('access_token');
+                if (accessToken) {
+                    token = accessToken;
+                    localStorage.setItem('github_token', token);
+                    window.location.hash = '';
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('form').style.display = 'block';
+                    fetchUser();
+                    loadComments();
+                }
+            }
+        };
+
+        // 登录函数
         function login() {
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&redirect_uri=${BACKEND_URL}/callback`;
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&response_type=token&redirect_uri=${window.location.origin}`;
             window.location.href = authUrl;
         }
 
+        // 获取用户信息
         async function fetchUser() {
             try {
                 const res = await fetch('https://api.github.com/user', {
@@ -119,22 +139,26 @@
             }
         }
 
+        // 提交留言
         async function submitMessage() {
             const message = document.getElementById('message').value.trim();
             if (!message) return showError('留言不能为空！');
 
             try {
-                const comments = await fetch(`${BACKEND_URL}/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
+                const comments = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).then(res => res.json());
                 if (comments.some(c => c.user.login === user.login)) {
                     return showError('你已经留过言了，每人只能留言一次！');
                 }
 
-                const res = await fetch(`${BACKEND_URL}/comment`, {
+                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ repo: REPO, issue: ISSUE_ID, content: message })
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ body: message })
                 });
                 if (!res.ok) throw new Error('提交失败');
                 document.getElementById('message').value = '';
@@ -144,9 +168,10 @@
             }
         }
 
+        // 加载留言
         async function loadComments() {
             try {
-                const res = await fetch(`${BACKEND_URL}/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
+                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('加载留言失败');
@@ -170,24 +195,12 @@
             }
         }
 
+        // 显示错误信息
         function showError(msg) {
             const errorDiv = document.getElementById('errorMsg');
             errorDiv.style.display = 'block';
             errorDiv.textContent = msg;
             setTimeout(() => errorDiv.style.display = 'none', 5000);
-        }
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        if (code) {
-            fetch(`${BACKEND_URL}/callback?code=${code}`)
-                .then(res => res.text())
-                .then(t => {
-                    token = t;
-                    localStorage.setItem('github_token', token);
-                    window.location.search = '';
-                })
-                .catch(err => showError('登录失败：' + err.message));
         }
     </script>
 </body>
