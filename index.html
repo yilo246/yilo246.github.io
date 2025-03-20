@@ -2,29 +2,31 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>宜络的彩蛋（1）</title>
+    <title>宜络的秘密留言板</title>
     <style>
         body {
             background: #000000;
             color: #fff;
             font-family: 'Arial', 'Microsoft Yahei', sans-serif;
             max-width: 800px;
-            margin: 0 auto;
-            padding: 20px 0 20px 100px;
+            margin: 20px 0 20px 20px;
+            padding: 0;
             line-height: 1.6;
-            font-size: 16px;
         }
         h1 {
-            font-size: 2.8em;
+            font-size: 2.4em;
             margin: 40px 0 20px;
             border-bottom: 2px solid #333;
             padding-bottom: 15px;
-            display: inline-block;
-            white-space: pre;
         }
         .rules {
             margin: 30px 0;
             padding: 20px 20px 20px 0;
+        }
+        .rule-item {
+            color: #999;
+            margin: 15px 0;
+            padding-left: 0;
         }
         #message {
             background: #1a1a1a;
@@ -37,188 +39,257 @@
             border-radius: 6px;
             font-size: 16px;
         }
-        #postSection {
-            position: fixed;
-            bottom: 20px;
-            width: 700px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding-left: 100px;
-        }
-        #submitBtn {
+        button {
             background: #333;
             color: #fff;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 25px;
             border-radius: 6px;
-            font-size: 16px;
             cursor: pointer;
-            opacity: 0.5;
-            pointer-events: none;
+            transition: all 0.3s;
         }
-        #submitBtn.enabled {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        #submitBtn:hover.enabled {
+        button:hover {
             background: #444;
         }
-        #typingText {
-            color: #fff;
-            font-size: 1.1em;
-            display: inline-block;
-            white-space: pre-wrap;
-            text-align: left; /* 确保文字左对齐 */
+        .comment {
+            background: #1a1a1a;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+            border-left: 4px solid #333;
         }
-        .cursor {
-            display: inline-block;
-            width: 2px;
-            height: 1.2em;
-            background: #fff;
-            vertical-align: middle;
-            animation: blink 0.8s step-end infinite;
+        .comment-header {
+            color: #888;
+            margin-bottom: 12px;
+            font-size: 0.9em;
         }
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
-        .shake-extra {
-            display: inline-block;
-            animation: shakeExtra 0.1s; /* 抖动改为0.1秒 */
-        }
-        @keyframes shakeExtra {
-            0% { transform: translate(0, 0); }
-            25% { transform: translate(-3px, 2px); }
-            50% { transform: translate(3px, -2px); }
-            75% { transform: translate(-2px, 1px); }
-            100% { transform: translate(0, 0); }
-        }
-        .anonymous-user {
-            color: #98C379;
+        .error {
+            background: #2d0000;
+            color: #ff6666;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #ff4444;
         }
     </style>
 </head>
 <body>
-    <h1 id="titleText"></h1>
+    <h1>宜络的秘密留言板</h1>
     
     <div class="rules">
-        <p id="typingText"></p>
+        <p style="color: #fff; font-size: 1.1em;">不错啊，你居然能找到这里。来吧，说点什么</p>
+        <p class="rule-item">• 你只可以说一句，但上限是140个字</p>
+        <p class="rule-item">• 你的留言会被一直保存在这里。这玩意可比石碑耐用</p>
+        <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
     </div>
 
-    <div id="postSection">
+    <div id="authSection">
+        <button id="authButton">通过 GitHub 认证</button>
+    </div>
+
+    <div id="postSection" style="display: none;">
         <textarea 
             id="message" 
-            placeholder=""
+            placeholder="在这里写下你的故事...（别超过140字哦）" 
             maxlength="140"
         ></textarea>
-        <button id="submitBtn">发送</button>
+        <button onclick="submitMessage()">永久保存</button>
     </div>
 
+    <div id="commentsContainer"></div>
+    <div id="errorDisplay" class="error" style="display: none;"></div>
+
     <script>
-        // 标题打字机效果
-        const titleText = "宜络的彩蛋";
-        const titleExtra = "（1）";
-        const titleElement = document.getElementById("titleText");
-        let titleIndex = 0;
+        // 配置信息
+        const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 你的 Client ID
+        const CLIENT_SECRET = '32a7af2c8562298083767d5ca32d3c2b107a4429'; // 你的 Client Secret
+        const REPO = 'yilo246/my-secret-board'; // 你的用户名和留言仓库
+        const ISSUE_ID = 1; // 默认使用第一个 issue
 
-        function startWithCursor() {
-            titleElement.innerHTML = '<span class="cursor"></span>';
-            setTimeout(() => {
-                titleElement.innerHTML = '<span class="cursor"></span>';
-                setTimeout(typeTitle, 800);
-            }, 800);
-        }
-
-        function typeTitle() {
-            if (titleIndex < titleText.length) {
-                titleElement.innerHTML = titleText.slice(0, titleIndex + 1);
-                titleIndex++;
-                setTimeout(typeTitle, 50);
-            } else if (titleIndex === titleText.length) {
-                titleElement.innerHTML = titleText;
-                setTimeout(() => {
-                    titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
-                    setTimeout(() => {
-                        titleElement.innerHTML = titleText + titleExtra;
-                        setTimeout(() => {
-                            typeMainText();
-                        }, 1500); // “（1）”后停顿1.5秒
-                    }, 100); // 抖动持续0.1秒
-                }, 500);
-                titleIndex++;
-            }
-        }
-
-        // 正文打字机效果
-        const mainText = "不错啊，你居然能找到这里\n事实上，我还没有想好彩蛋的内容\n所以，怎么称呼？\n";
-        const typingText = document.getElementById("typingText");
-        let mainIndex = 0;
-        const punctuation = { "，": 500, "？": 750, "。": 750, "—": 750, "…": 1500 };
-        const brackets = ["（", "）"];
-        const submitBtn = document.getElementById("submitBtn");
-        const messageInput = document.getElementById("message");
-        let userResponseCount = 0;
-        let awaitingResponse = false;
-
-        function typeMainText() {
-            if (mainIndex < mainText.length) {
-                typingText.innerHTML = mainText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
-                const currentChar = mainText.charAt(mainIndex);
-                mainIndex++;
-                if (currentChar === "\n") {
-                    setTimeout(typeMainText, 1000); // 换行暂停1秒
-                } else if (punctuation[currentChar] && !brackets.some(b => mainText.slice(0, mainIndex).endsWith(b))) {
-                    setTimeout(typeMainText, punctuation[currentChar]); // 标点暂停
-                } else {
-                    setTimeout(typeMainText, 50);
-                }
-            } else {
-                typingText.innerHTML = mainText;
-                submitBtn.classList.add("enabled");
-                awaitingResponse = true;
-                enableSubmit();
-            }
-        }
-
-        // 发送功能
-        function enableSubmit() {
-            function submitMessage() {
-                const message = messageInput.value.trim();
-                if (message && !submitBtn.disabled) {
-                    submitBtn.disabled = true; // 禁用按钮
-                    typingText.innerHTML += '<span class="anonymous-user">Anonymous user: </span>' + message + "\n";
-                    messageInput.value = "";
-                    userResponseCount++;
-
-                    setTimeout(() => {
-                        if (awaitingResponse && message.toLowerCase() === "luminalis") {
-                            typingText.innerHTML += "猜猜怎么着，你触发了真正的彩蛋。这别人告诉你的还是你瞎蒙的还是你自己发现的？还是说你真叫这个名字？我觉得不太可能。行吧，不重要。重要的是彩蛋，那么彩蛋是什么呢？彩蛋是【卢米纳万岁】。这是一句暗号，能让我在人群之中一眼认出你。就是这样。好了，我要去和DeepSeek探讨哲学问题了。等你的暗号。\n：（宜络断开了连接）\n";
-                            awaitingResponse = false;
-                        } else if (awaitingResponse) {
-                            typingText.innerHTML += "好的朋友，我会尝试记住的。我才记起来，其实我还没有想好这个彩蛋里该加点什么内容。或许我会在之后加点东西？可能吧。作为一个彩蛋它的基本目的已经达到了，就是意外惊喜！或许你没有感到惊喜？但或许你能有其他什么感受？比如成就感之类的？‘哦！我找到了他的彩蛋！’就像这样。你知道吗，我就喜欢【干涉】的感觉。但也可能你什么都感受不到。\nwhatever。总而言之，恭喜你，朋友，你是一个细心的人。我饿了。期待我们的下次见面，我要去吃烤破忒头（加黄金芝士酱培根碎）了。✝薯门✝——\n：（宜络离开了）\n";
-                            awaitingResponse = false;
-                        } else if (userResponseCount < 5) {
-                            typingText.innerHTML += "（一片寂静，什么都没有发生）\n";
-                        } else {
-                            typingText.innerHTML += "（你闻到了远处飘来一股烤土豆的香气）\n";
-                        }
-                        submitBtn.disabled = false; // 重新启用按钮
-                    }, 1000); // 发送后1秒生成文字
-                }
-            }
-
-            submitBtn.onclick = submitMessage;
-            messageInput.onkeydown = function(e) {
-                if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    submitMessage();
-                }
-            };
-        }
-
-        // 页面加载时开始光标闪烁
-        window.onload = function() {
-            startWithCursor();
+        // 认证状态管理
+        let authState = {
+            token: localStorage.getItem('gh_token') || null,
+            user: null
         };
+
+        // 绑定按钮点击事件
+        document.getElementById('authButton').addEventListener('click', () => {
+            startAuthFlow();
+        });
+
+        // 初始化检查
+        window.addEventListener('load', () => {
+            checkAuthParams();
+        });
+
+        // 检查授权参数
+        function checkAuthParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            if (code) {
+                handleOAuthCallback(code);
+            } else if (authState.token) {
+                verifyToken();
+            }
+        }
+
+        // 启动认证流程
+        function startAuthFlow() {
+            const redirectUri = encodeURIComponent(window.location.origin);
+            const scope = encodeURIComponent('user');
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+            window.location.assign(authUrl);
+        }
+
+        // 处理回调（授权码模式）
+        async function handleOAuthCallback(code) {
+            try {
+                const redirectUri = window.location.origin;
+                const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: CLIENT_ID,
+                        client_secret: CLIENT_SECRET,
+                        code: code,
+                        redirect_uri: redirectUri
+                    })
+                });
+
+                const tokenData = await tokenResponse.json();
+                if (tokenData.error) throw new Error(tokenData.error_description);
+
+                const accessToken = tokenData.access_token;
+                authState.token = accessToken;
+                localStorage.setItem('gh_token', accessToken);
+                
+                window.history.replaceState({}, document.title, window.location.pathname);
+                await fetchUserProfile();
+                showPostSection();
+                loadComments();
+            } catch (error) {
+                showError('认证失败，请重试');
+                clearAuth();
+            }
+        }
+
+        // 获取用户信息
+        async function fetchUserProfile() {
+            const res = await fetch('https://api.github.com/user', {
+                headers: { Authorization: `Bearer ${authState.token}` }
+            });
+            authState.user = await res.json();
+        }
+
+        // 验证 token 有效性
+        async function verifyToken() {
+            try {
+                const res = await fetch('https://api.github.com/user', {
+                    headers: { Authorization: `Bearer ${authState.token}` }
+                });
+                if (!res.ok) throw new Error('token 无效');
+                await fetchUserProfile();
+                showPostSection();
+                loadComments();
+            } catch (error) {
+                clearAuth();
+            }
+        }
+
+        // 提交留言
+        async function submitMessage() {
+            const message = document.getElementById('message').value.trim();
+            if (!message) return showError('写点什么再提交吧');
+
+            try {
+                const existing = await checkExistingComment();
+                if (existing) return showError('每人只能留言一次哦');
+                
+                await postNewComment(message);
+                document.getElementById('message').value = '';
+                loadComments();
+            } catch (error) {
+                showError('保存失败，请稍后再试');
+            }
+        }
+
+        // 检查现有留言
+        async function checkExistingComment() {
+            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
+                headers: { Authorization: `Bearer ${authState.token}` }
+            });
+            const comments = await res.json();
+            return comments.some(c => c.user.login === authState.user.login);
+        }
+
+        // 发布新留言
+        async function postNewComment(content) {
+            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ body: content })
+            });
+            if (!res.ok) throw new Error('提交失败');
+        }
+
+        // 加载留言
+        async function loadComments() {
+            try {
+                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`, {
+                    headers: { Authorization: `Bearer ${authState.token}` }
+                });
+                if (!res.ok) throw new Error('加载失败');
+                
+                const comments = await res.json();
+                const html = comments.map(c => {
+                    const date = new Date(c.created_at);
+                    return `
+                        <div class="comment">
+                            <div class="comment-header">
+                                ${getMoonIcon(date)}
+                                ${date.toLocaleString('zh-CN')} · 
+                                <span style="color:#666;">@${c.user.login}</span>
+                            </div>
+                            <div>${c.body}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('commentsContainer').innerHTML = html;
+            } catch (error) {
+                showError('留言加载失败');
+            }
+        }
+
+        // 辅助函数
+        function getMoonIcon(date) {
+            const hour = date.getHours();
+            return (hour >= 1 && hour < 6) ? '🌙 ' : '';
+        }
+
+        function showPostSection() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('postSection').style.display = 'block';
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('gh_token');
+            authState = { token: null, user: null };
+            window.location.href = window.location.origin;
+        }
+
+        function showError(msg) {
+            const errorDiv = document.getElementById('errorDisplay');
+            errorDiv.textContent = msg;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
+        }
     </script>
 </body>
 </html>
