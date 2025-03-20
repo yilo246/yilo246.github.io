@@ -89,10 +89,10 @@
         const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
         const REPO = 'yilo246/my-secret-board';
         const ISSUE_ID = 1;
+        const BACKEND_URL = 'http://localhost:3000'; // 稍后替换为 Heroku URL
         let token = localStorage.getItem('github_token');
         let user = null;
 
-        // 检查登录状态
         if (token) {
             document.getElementById('login').style.display = 'none';
             document.getElementById('form').style.display = 'block';
@@ -100,13 +100,11 @@
             loadComments();
         }
 
-        // 登录
         function login() {
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&redirect_uri=http://localhost:3000/callback`;
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&redirect_uri=${BACKEND_URL}/callback`;
             window.location.href = authUrl;
         }
 
-        // 获取用户信息
         async function fetchUser() {
             try {
                 const res = await fetch('https://api.github.com/user', {
@@ -121,22 +119,19 @@
             }
         }
 
-        // 提交留言
         async function submitMessage() {
             const message = document.getElementById('message').value.trim();
             if (!message) return showError('留言不能为空！');
 
             try {
-                // 检查是否已留言
-                const comments = await fetch(`http://localhost:3000/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
+                const comments = await fetch(`${BACKEND_URL}/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).then(res => res.json());
                 if (comments.some(c => c.user.login === user.login)) {
                     return showError('你已经留过言了，每人只能留言一次！');
                 }
 
-                // 提交留言
-                const res = await fetch(`http://localhost:3000/comment`, {
+                const res = await fetch(`${BACKEND_URL}/comment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ repo: REPO, issue: ISSUE_ID, content: message })
@@ -149,10 +144,9 @@
             }
         }
 
-        // 加载留言
         async function loadComments() {
             try {
-                const res = await fetch(`http://localhost:3000/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
+                const res = await fetch(`${BACKEND_URL}/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('加载留言失败');
@@ -176,7 +170,6 @@
             }
         }
 
-        // 显示错误
         function showError(msg) {
             const errorDiv = document.getElementById('errorMsg');
             errorDiv.style.display = 'block';
@@ -184,11 +177,10 @@
             setTimeout(() => errorDiv.style.display = 'none', 5000);
         }
 
-        // 处理 OAuth 回调
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         if (code) {
-            fetch(`http://localhost:3000/callback?code=${code}`)
+            fetch(`${BACKEND_URL}/callback?code=${code}`)
                 .then(res => res.text())
                 .then(t => {
                     token = t;
@@ -197,11 +189,6 @@
                 })
                 .catch(err => showError('登录失败：' + err.message));
         }
-    </script>
-</body>
-</html>
-            }
-        })();
     </script>
 </body>
 </html>
