@@ -104,6 +104,7 @@
     <script>
         // 配置信息
         const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 新的 Client ID
+        const CLIENT_SECRET = '80b3d9f3bc5b2671c881426fd873039a865c55ac'; // 新的 Client Secret
         const REPO = 'yilo246/my-secret-board';
         const ISSUE_ID = 1;
 
@@ -118,6 +119,7 @@
             console.log('页面加载，检查 URL 和 token');
             console.log('当前 URL:', window.location.href);
             console.log('当前 hash:', window.location.hash);
+            console.log('当前 search:', window.location.search);
             checkAuthParams();
         });
 
@@ -126,26 +128,24 @@
             console.log('哈希变化，重新检查');
             console.log('当前 URL:', window.location.href);
             console.log('当前 hash:', window.location.hash);
+            console.log('当前 search:', window.location.search);
             checkAuthParams();
         });
 
         // 检查授权参数
         function checkAuthParams() {
+            console.log('检查授权参数');
             // 检查 code 参数（授权码模式）
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
             if (code) {
                 console.log('检测到 code 参数:', code);
-                showError('授权模式不匹配，请重新登录');
-                clearAuth();
+                handleOAuthCallback(code);
                 return;
             }
 
-            // 检查 access_token（隐式授权模式）
-            if (window.location.hash.includes('access_token')) {
-                console.log('检测到 access_token，处理回调');
-                handleOAuthCallback();
-            } else if (authState.token) {
+            // 检查本地存储的 token
+            if (authState.token) {
                 console.log('已有 token，验证 token 有效性');
                 verifyToken();
             } else {
@@ -159,7 +159,7 @@
                 console.log('启动认证流程');
                 const redirectUri = encodeURIComponent(window.location.origin);
                 const scope = encodeURIComponent('user');
-                const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
+                const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
                 console.log('跳转到:', authUrl);
                 window.location.href = authUrl; // 直接跳转
             } catch (error) {
@@ -168,13 +168,35 @@
             }
         }
 
-        // 处理回调
-        async function handleOAuthCallback() {
+        // 处理回调（授权码模式）
+        async function handleOAuthCallback(code) {
             try {
-                console.log('开始处理 OAuth 回调');
-                const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                const accessToken = hashParams.get('access_token');
+                console.log('开始处理 OAuth 回调，使用 code:', code);
+                const redirectUri = window.location.origin;
                 
+                // 使用 code 交换 access_token
+                const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: CLIENT_ID,
+                        client_secret: CLIENT_SECRET,
+                        code: code,
+                        redirect_uri: redirectUri
+                    })
+                });
+
+                const tokenData = await tokenResponse.json();
+                console.log('token 响应:', tokenData);
+
+                if (tokenData.error) {
+                    throw new Error(`获取 access_token 失败: ${tokenData.error_description}`);
+                }
+
+                const accessToken = tokenData.access_token;
                 console.log('获取到 access_token:', accessToken);
                 if (!accessToken) throw new Error('认证失败：无 access_token');
                 
@@ -182,9 +204,9 @@
                 localStorage.setItem('gh_token', accessToken);
                 console.log('已存储 token 到 localStorage');
                 
-                // 清理 URL 中的 hash
+                // 清理 URL 中的 code 参数
                 window.history.replaceState({}, document.title, window.location.pathname);
-                console.log('已清理 URL 中的 hash，当前 URL:', window.location.href);
+                console.log('已清理 URL 中的 code 参数，当前 URL:', window.location.href);
                 
                 await fetchUserProfile();
                 showPostSection();
@@ -237,7 +259,7 @@
 
         // 提交留言
         async function submitMessage() {
-            const message = document.getElementById('message').value.trim();
+            const message = document.getElement. getElementById('message').value.trim();
             if (!message) return showError('写点什么再提交吧');
 
             try {
@@ -335,7 +357,10 @@
             authState = { token: null, user: null };
             // 仅在必要时刷新
             if (window.location.hash || window.location.search) {
+                console.log('URL 中有 hash 或 search，执行刷新');
                 window.location.href = window.location.origin;
+            } else {
+                console.log('URL 已清理，无需刷新');
             }
         }
 
@@ -356,9 +381,6 @@
                 showError('保存失败，请稍后再试');
             }
         }
-
-        // 强制触发 hashchange 事件
-        window.dispatchEvent(new Event('hashchange'));
     </script>
 </body>
 </html>
