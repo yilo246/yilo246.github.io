@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <title>宜络的秘密留言板</title>
     <style>
-        /* 优化后的样式 */
         body {
-            background: #000000; /* 纯黑背景 */
+            background: #000000;
             color: #fff;
             font-family: 'Arial', 'Microsoft Yahei', sans-serif;
             max-width: 800px;
-            margin: 20px 0 20px 20px; /* 靠左对齐 */
+            margin: 20px 0 20px 20px;
             padding: 0;
             line-height: 1.6;
         }
@@ -22,18 +21,17 @@
         }
         .rules {
             margin: 30px 0;
-            padding: 20px 20px 20px 0; /* 移除左侧 padding，确保靠左 */
-            /* 无背景框 */
+            padding: 20px 20px 20px 0;
         }
         .rule-item {
-            color: #999; /* 保持最初的透明度 */
+            color: #999;
             margin: 15px 0;
-            padding-left: 0; /* 移除左侧 padding，确保绝对靠左 */
+            padding-left: 0;
         }
         #message {
             background: #1a1a1a;
             border: 1px solid #333;
-            color: #fff; /* 修正颜色值 */
+            color: #fff;
             padding: 15px;
             margin: 20px 0;
             width: 100%;
@@ -102,320 +100,7 @@
     <div id="errorDisplay" class="error" style="display: none;"></div>
 
     <script>
-        // 配置信息
-        const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 新的 Client ID
-        const CLIENT_SECRET = '80b3d9f3bc5b2671c881426fd873039a865c55ac'; // 新的 Client Secret
-        const REPO = 'yilo246/my-secret-board';
-        const ISSUE_ID = 1;
-
-        // 认证状态管理
-        let authState = {
-            token: localStorage.getItem('gh_token') || null,
-            user: null
-        };
-
-        // 绑定按钮点击事件
-        document.getElementById('authButton').addEventListener('click', () => {
-            console.log('点击了“通过 GitHub 认证”按钮');
-            startAuthFlow();
-        });
-
-        // 初始化检查
-        window.addEventListener('load', () => {
-            console.log('页面加载，检查 URL 和 token');
-            console.log('当前 URL:', window.location.href);
-            console.log('当前 hash:', window.location.hash);
-            console.log('当前 search:', window.location.search);
-            checkAuthParams();
-        });
-
-        // 监听哈希变化
-        window.addEventListener('hashchange', () => {
-            console.log('哈希变化，重新检查');
-            console.log('当前 URL:', window.location.href);
-            console.log('当前 hash:', window.location.hash);
-            console.log('当前 search:', window.location.search);
-            checkAuthParams();
-        });
-
-        // 检查授权参数
-        function checkAuthParams() {
-            console.log('检查授权参数');
-            // 检查 code 参数（授权码模式）
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            if (code) {
-                console.log('检测到 code 参数:', code);
-                handleOAuthCallback(code);
-                return;
-            }
-
-            // 检查本地存储的 token
-            if (authState.token) {
-                console.log('已有 token，验证 token 有效性');
-                verifyToken();
-            } else {
-                console.log('无 token，显示登录按钮');
-            }
-        }
-
-        // 启动认证流程
-        function startAuthFlow() {
-            try {
-                console.log('启动认证流程');
-                const redirectUri = encodeURIComponent(window.location.origin);
-                const scope = encodeURIComponent('user');
-                const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
-                console.log('跳转到:', authUrl);
-
-                // 尝试使用 window.location.assign 跳转
-                window.location.assign(authUrl);
-
-                // 如果跳转失败，尝试 window.open
-                setTimeout(() => {
-                    console.warn('检查跳转是否成功，当前 URL:', window.location.href);
-                    if (window.location.href === window.location.origin) {
-                        console.warn('window.location.assign 跳转失败，尝试 window.open');
-                        window.open(authUrl, '_self');
-
-                        // 如果 window.open 也失败，尝试使用 <a> 标签跳转
-                        setTimeout(() => {
-                            console.warn('检查 window.open 是否成功，当前 URL:', window.location.href);
-                            if (window.location.href === window.location.origin) {
-                                console.warn('window.open 跳转失败，尝试使用 <a> 标签跳转');
-                                const link = document.createElement('a');
-                                link.href = authUrl;
-                                link.style.display = 'none';
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                            } else {
-                                console.log('window.open 跳转成功，当前页面已离开');
-                            }
-                        }, 1000);
-                    } else {
-                        console.log('window.location.assign 跳转成功，当前页面已离开');
-                    }
-                }, 1000);
-            } catch (error) {
-                console.error('跳转失败:', error.message);
-                showError('跳转到 GitHub 认证页面失败，请重试');
-            }
-        }
-
-        // 处理回调（授权码模式）
-        async function handleOAuthCallback(code) {
-            try {
-                console.log('开始处理 OAuth 回调，使用 code:', code);
-                const redirectUri = window.location.origin;
-                
-                // 使用 code 交换 access_token
-                const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        client_id: CLIENT_ID,
-                        client_secret: CLIENT_SECRET,
-                        code: code,
-                        redirect_uri: redirectUri
-                    })
-                });
-
-                const tokenData = await tokenResponse.json();
-                console.log('token 响应:', tokenData);
-
-                if (tokenData.error) {
-                    throw new Error(`获取 access_token 失败: ${tokenData.error_description}`);
-                }
-
-                const accessToken = tokenData.access_token;
-                console.log('获取到 access_token:', accessToken);
-                if (!accessToken) throw new Error('认证失败：无 access_token');
-                
-                authState.token = accessToken;
-                localStorage.setItem('gh_token', accessToken);
-                console.log('已存储 token 到 localStorage');
-                
-                // 清理 URL 中的 code 参数
-                window.history.replaceState({}, document.title, window.location.pathname);
-                console.log('已清理 URL 中的 code 参数，当前 URL:', window.location.href);
-                
-                await fetchUserProfile();
-                showPostSection();
-                loadComments();
-            } catch (error) {
-                console.error('OAuth 回调处理失败:', error.message);
-                showError('认证失败，请重试');
-                clearAuth();
-            }
-        }
-
-        // 获取用户信息
-        async function fetchUserProfile() {
-            try {
-                console.log('开始获取用户信息');
-                const res = await fetch('https://api.github.com/user', {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(`无法获取用户信息，状态码: ${res.status}, 错误: ${errorData.message}`);
-                }
-                
-                authState.user = await res.json();
-                console.log('用户信息获取成功:', authState.user.login);
-            } catch (error) {
-                console.error('获取用户信息失败:', error.message);
-                showError('获取用户信息失败：' + error.message);
-                clearAuth();
-            }
-        }
-
-        // 验证 token 有效性
-        async function verifyToken() {
-            try {
-                console.log('验证 token 有效性');
-                const res = await fetch('https://api.github.com/user', {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                if (!res.ok) throw new Error(`token 无效，状态码: ${res.status}`);
-                await fetchUserProfile();
-                showPostSection();
-                loadComments();
-            } catch (error) {
-                console.error('token 验证失败:', error.message);
-                clearAuth();
-            }
-        }
-
-        // 提交留言
-        async function submitMessage() {
-            const message = document.getElementById('message').value.trim();
-            if (!message) return showError('写点什么再提交吧');
-
-            try {
-                console.log('检查是否已留言');
-                const existing = await checkExistingComment();
-                if (existing) return showError('每人只能留言一次哦');
-                
-                console.log('提交新留言:', message);
-                await postNewComment(message);
-                document.getElementById('message').value = '';
-                loadComments();
-            } catch (error) {
-                handleSubmitError(error);
-            }
-        }
-
-        // 检查现有留言
-        async function checkExistingComment() {
-            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                headers: { Authorization: `Bearer ${authState.token}` }
-            });
-            if (!res.ok) throw new Error(`无法检查留言，状态码: ${res.status}`);
-            const comments = await res.json();
-            return comments.some(c => c.user.login === authState.user.login);
-        }
-
-        // 发布新留言
-        async function postNewComment(content) {
-            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authState.token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ body: content })
-            });
-            
-            if (!res.ok) throw new Error(`提交失败，状态码: ${res.status}`);
-            console.log('留言提交成功');
-        }
-
-        // 加载留言
-        async function loadComments() {
-            try {
-                console.log('开始加载留言');
-                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`, {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                if (!res.ok) throw new Error(`加载留言失败，状态码: ${res.status}`);
-                
-                const comments = await res.json();
-                console.log('留言加载成功，数量:', comments.length);
-                
-                const html = comments.map(c => {
-                    const date = new Date(c.created_at);
-                    return `
-                        <div class="comment">
-                            <div class="comment-header">
-                                ${getMoonIcon(date)}
-                                ${date.toLocaleString('zh-CN')} · 
-                                <span style="color:#666;">@${c.user.login}</span>
-                            </div>
-                            <div>${c.body}</div>
-                        </div>
-                    `;
-                }).join('');
-                
-                document.getElementById('commentsContainer').innerHTML = html;
-            } catch (error) {
-                console.error('加载留言失败:', error.message);
-                if (error.message.includes('401')) {
-                    showError('认证已过期，请重新登录');
-                    clearAuth();
-                } else {
-                    showError('留言加载失败');
-                }
-            }
-        }
-
-        // 辅助函数
-        function getMoonIcon(date) {
-            const hour = date.getHours();
-            return (hour >= 1 && hour < 6) ? '🌙 ' : '';
-        }
-
-        function showPostSection() {
-            console.log('显示留言表单');
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('postSection').style.display = 'block';
-        }
-
-        function clearAuth() {
-            console.log('清除认证信息');
-            localStorage.removeItem('gh_token');
-            authState = { token: null, user: null };
-            // 仅在必要时刷新
-            if (window.location.hash || window.location.search) {
-                console.log('URL 中有 hash 或 search，执行刷新');
-                window.location.href = window.location.origin;
-            } else {
-                console.log('URL 已清理，无需刷新');
-            }
-        }
-
-        function showError(msg) {
-            console.log('显示错误:', msg);
-            const errorDiv = document.getElementById('errorDisplay');
-            errorDiv.textContent = msg;
-            errorDiv.style.display = 'block';
-            setTimeout(() => errorDiv.style.display = 'none', 5000);
-        }
-
-        function handleSubmitError(error) {
-            console.error('提交失败:', error.message);
-            if (error.message.includes('401')) {
-                showError('认证已过期，请重新登录');
-                clearAuth();
-            } else {
-                showError('保存失败，请稍后再试');
-            }
-        }
+        // 稍后我们会在这里添加 JavaScript 代码
     </script>
 </body>
 </html>
