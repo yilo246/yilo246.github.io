@@ -117,6 +117,28 @@
         // 初始化检查
         window.addEventListener('load', () => {
             console.log('页面加载，检查 URL 和 token');
+            checkAuthParams();
+        });
+
+        // 监听哈希变化
+        window.addEventListener('hashchange', () => {
+            console.log('哈希变化，重新检查');
+            checkAuthParams();
+        });
+
+        // 检查授权参数
+        function checkAuthParams() {
+            // 检查 code 参数（授权码模式）
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            if (code) {
+                console.log('检测到 code 参数:', code);
+                showError('授权模式不匹配，请重新登录');
+                clearAuth();
+                return;
+            }
+
+            // 检查 access_token（隐式授权模式）
             if (window.location.hash.includes('access_token')) {
                 console.log('检测到 access_token，处理回调');
                 handleOAuthCallback();
@@ -126,16 +148,7 @@
             } else {
                 console.log('无 token，显示登录按钮');
             }
-        });
-
-        // 监听哈希变化
-        window.addEventListener('hashchange', () => {
-            console.log('哈希变化，重新检查');
-            if (window.location.hash.includes('access_token')) {
-                console.log('检测到 access_token，处理回调');
-                handleOAuthCallback();
-            }
-        });
+        }
 
         // 启动认证流程
         function startAuthFlow() {
@@ -143,7 +156,7 @@
                 console.log('启动认证流程');
                 const redirectUri = encodeURIComponent(window.location.origin);
                 const scope = encodeURIComponent('user');
-                const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
+                const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
                 console.log('跳转到:', authUrl);
                 window.location.href = authUrl; // 直接跳转
             } catch (error) {
@@ -311,7 +324,7 @@
             console.log('清除认证信息');
             localStorage.removeItem('gh_token');
             authState = { token: null, user: null };
-            window.location.reload();
+            window.location.href = window.location.origin; // 强制刷新
         }
 
         function showError(msg) {
