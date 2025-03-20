@@ -6,12 +6,12 @@
     <style>
         /* 优化后的样式 */
         body {
-            background: #0a0a0a;
+            background: #000000; /* 纯黑背景 */
             color: #fff;
             font-family: 'Arial', 'Microsoft Yahei', sans-serif;
             max-width: 800px;
-            margin: 20px auto;
-            padding: 0 20px;
+            margin: 20px 0 20px 20px; /* 靠左对齐 */
+            padding: 0;
             line-height: 1.6;
         }
         h1 {
@@ -23,14 +23,13 @@
         .rules {
             margin: 30px 0;
             padding: 20px;
-            background: #1a1a1a;
-            border-radius: 8px;
+            /* 移除背景框 */
         }
         .rule-item {
-            color: #999; /* 恢复到最开始的透明度 */
+            color: #999; /* 保持最初的透明度 */
             margin: 15px 0;
             padding-left: 10px;
-            border-left: 3px solid #333;
+            /* 之前已移除竖杠 */
         }
         #message {
             background: #1a1a1a;
@@ -81,7 +80,7 @@
     <h1>宜络的秘密留言板</h1>
     
     <div class="rules">
-        <p style="color: #fff; font-size: 1.1em;"> 不错啊，你居然能找到这里来。来吧，说点什么</p>
+        <p style="color: #fff; font-size: 1.1em;">不错啊，你居然能找到这里来。来吧，说点什么</p>
         <p class="rule-item">• 你只可以说一句，但上限140个字。真的有人一句话会说这么多吗</p>
         <p class="rule-item">• 你的留言会一直被保存在这里。这玩意比石碑耐用</p>
         <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
@@ -104,7 +103,7 @@
     <div id="errorDisplay" class="error" style="display: none;"></div>
 
     <script>
-        // 配置信息（需要修改）
+        // 配置信息
         const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
         const REPO = 'yilo246/my-secret-board';
         const ISSUE_ID = 1;
@@ -117,45 +116,52 @@
 
         // 初始化检查
         window.addEventListener('load', () => {
-            console.log('页面加载，检查 URL 哈希');
+            console.log('页面加载，检查 URL 和 token');
             if (window.location.hash.includes('access_token')) {
+                console.log('检测到 access_token，处理回调');
                 handleOAuthCallback();
             } else if (authState.token) {
+                console.log('已有 token，验证 token 有效性');
                 verifyToken();
+            } else {
+                console.log('无 token，显示登录按钮');
             }
         });
 
         // 启动认证流程
         function startAuthFlow() {
-            console.log('开始认证流程');
-            const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
-            const scope = encodeURIComponent('repo');
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
-            
-            console.log('跳转到:', authUrl);
-            window.location.href = authUrl;
+            try {
+                console.log('启动认证流程');
+                const redirectUri = encodeURIComponent(window.location.origin);
+                const scope = encodeURIComponent('user');
+                const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
+                console.log('跳转到:', authUrl);
+                window.location.href = authUrl; // 直接跳转
+            } catch (error) {
+                console.error('跳转失败:', error.message);
+                showError('跳转到 GitHub 认证页面失败，请重试');
+            }
         }
 
         // 处理回调
         async function handleOAuthCallback() {
             try {
-                console.log('处理 OAuth 回调');
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
                 const accessToken = hashParams.get('access_token');
                 
-                if (!accessToken) throw new Error('认证失败');
+                console.log('获取到 access_token:', accessToken);
+                if (!accessToken) throw new Error('认证失败：无 access_token');
                 
                 authState.token = accessToken;
                 localStorage.setItem('gh_token', accessToken);
                 window.history.replaceState({}, document.title, window.location.pathname);
                 
-                console.log('获取到 access_token:', accessToken);
                 await fetchUserProfile();
                 showPostSection();
                 loadComments();
             } catch (error) {
+                console.error('OAuth 回调处理失败:', error.message);
                 showError('认证失败，请重试');
-                console.error('OAuth回调处理失败:', error);
             }
         }
 
@@ -167,30 +173,30 @@
                     headers: { Authorization: `Bearer ${authState.token}` }
                 });
                 
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (!res.ok) throw new Error(`无法获取用户信息，状态码: ${res.status}`);
                 
                 authState.user = await res.json();
                 console.log('用户信息获取成功:', authState.user.login);
             } catch (error) {
+                console.error('获取用户信息失败:', error.message);
                 showError('获取用户信息失败');
-                console.error('获取用户信息失败:', error);
                 clearAuth();
             }
         }
 
-        // 验证Token有效性
+        // 验证 token 有效性
         async function verifyToken() {
             try {
                 console.log('验证 token 有效性');
                 const res = await fetch('https://api.github.com/user', {
                     headers: { Authorization: `Bearer ${authState.token}` }
                 });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                authState.user = await res.json();
+                if (!res.ok) throw new Error(`token 无效，状态码: ${res.status}`);
+                await fetchUserProfile();
                 showPostSection();
                 loadComments();
             } catch (error) {
-                console.error('Token 验证失败:', error);
+                console.error('token 验证失败:', error.message);
                 clearAuth();
             }
         }
@@ -201,12 +207,10 @@
             if (!message) return showError('写点什么再提交吧');
 
             try {
-                // 检查是否已留言
                 console.log('检查是否已留言');
                 const existing = await checkExistingComment();
                 if (existing) return showError('每人只能留言一次哦');
                 
-                // 提交新留言
                 console.log('提交新留言:', message);
                 await postNewComment(message);
                 document.getElementById('message').value = '';
@@ -221,6 +225,7 @@
             const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
                 headers: { Authorization: `Bearer ${authState.token}` }
             });
+            if (!res.ok) throw new Error(`无法检查留言，状态码: ${res.status}`);
             const comments = await res.json();
             return comments.some(c => c.user.login === authState.user.login);
         }
@@ -236,7 +241,8 @@
                 body: JSON.stringify({ body: content })
             });
             
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) throw new Error(`提交失败，状态码: ${res.status}`);
+            console.log('留言提交成功');
         }
 
         // 加载留言
@@ -246,10 +252,11 @@
                 const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`, {
                     headers: { Authorization: `Bearer ${authState.token}` }
                 });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const comments = await res.json();
+                if (!res.ok) throw new Error(`加载留言失败，状态码: ${res.status}`);
                 
+                const comments = await res.json();
                 console.log('留言加载成功，数量:', comments.length);
+                
                 const html = comments.map(c => {
                     const date = new Date(c.created_at);
                     return `
@@ -266,8 +273,13 @@
                 
                 document.getElementById('commentsContainer').innerHTML = html;
             } catch (error) {
-                showError('留言加载失败');
-                console.error('加载留言失败:', error);
+                console.error('加载留言失败:', error.message);
+                if (error.message.includes('401')) {
+                    showError('认证已过期，请重新登录');
+                    clearAuth();
+                } else {
+                    showError('留言加载失败');
+                }
             }
         }
 
@@ -299,7 +311,7 @@
         }
 
         function handleSubmitError(error) {
-            console.error('提交失败:', error);
+            console.error('提交失败:', error.message);
             if (error.message.includes('401')) {
                 showError('认证已过期，请重新登录');
                 clearAuth();
