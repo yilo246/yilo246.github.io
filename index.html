@@ -86,7 +86,7 @@
     </div>
 
     <div id="authSection">
-        <button onclick="startAuthFlow()">通过 GitHub 认证</button>
+        <button id="authButton">通过 GitHub 认证</button>
     </div>
 
     <div id="postSection" style="display: none;">
@@ -113,6 +113,12 @@
             token: localStorage.getItem('gh_token') || null,
             user: null
         };
+
+        // 绑定按钮点击事件
+        document.getElementById('authButton').addEventListener('click', () => {
+            console.log('点击了“通过 GitHub 认证”按钮');
+            startAuthFlow();
+        });
 
         // 初始化检查
         window.addEventListener('load', () => {
@@ -171,8 +177,24 @@
                     if (window.location.href === window.location.origin) {
                         console.warn('window.location.assign 跳转失败，尝试 window.open');
                         window.open(authUrl, '_self');
+
+                        // 如果 window.open 也失败，尝试使用 <a> 标签跳转
+                        setTimeout(() => {
+                            console.warn('检查 window.open 是否成功，当前 URL:', window.location.href);
+                            if (window.location.href === window.location.origin) {
+                                console.warn('window.open 跳转失败，尝试使用 <a> 标签跳转');
+                                const link = document.createElement('a');
+                                link.href = authUrl;
+                                link.style.display = 'none';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            } else {
+                                console.log('window.open 跳转成功，当前页面已离开');
+                            }
+                        }, 1000);
                     } else {
-                        console.log('跳转成功，当前页面已离开');
+                        console.log('window.location.assign 跳转成功，当前页面已离开');
                     }
                 }, 1000);
             } catch (error) {
