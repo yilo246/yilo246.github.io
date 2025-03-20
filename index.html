@@ -103,7 +103,7 @@
 
     <script>
         // 配置信息
-        const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 更新为新的 Client ID
+        const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 新的 Client ID
         const REPO = 'yilo246/my-secret-board';
         const ISSUE_ID = 1;
 
@@ -116,12 +116,16 @@
         // 初始化检查
         window.addEventListener('load', () => {
             console.log('页面加载，检查 URL 和 token');
+            console.log('当前 URL:', window.location.href);
+            console.log('当前 hash:', window.location.hash);
             checkAuthParams();
         });
 
         // 监听哈希变化
         window.addEventListener('hashchange', () => {
             console.log('哈希变化，重新检查');
+            console.log('当前 URL:', window.location.href);
+            console.log('当前 hash:', window.location.hash);
             checkAuthParams();
         });
 
@@ -167,6 +171,7 @@
         // 处理回调
         async function handleOAuthCallback() {
             try {
+                console.log('开始处理 OAuth 回调');
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
                 const accessToken = hashParams.get('access_token');
                 
@@ -175,7 +180,11 @@
                 
                 authState.token = accessToken;
                 localStorage.setItem('gh_token', accessToken);
+                console.log('已存储 token 到 localStorage');
+                
+                // 清理 URL 中的 hash
                 window.history.replaceState({}, document.title, window.location.pathname);
+                console.log('已清理 URL 中的 hash，当前 URL:', window.location.href);
                 
                 await fetchUserProfile();
                 showPostSection();
@@ -183,6 +192,7 @@
             } catch (error) {
                 console.error('OAuth 回调处理失败:', error.message);
                 showError('认证失败，请重试');
+                clearAuth();
             }
         }
 
@@ -323,7 +333,10 @@
             console.log('清除认证信息');
             localStorage.removeItem('gh_token');
             authState = { token: null, user: null };
-            window.location.href = window.location.origin; // 强制刷新
+            // 仅在必要时刷新
+            if (window.location.hash || window.location.search) {
+                window.location.href = window.location.origin;
+            }
         }
 
         function showError(msg) {
@@ -343,6 +356,9 @@
                 showError('保存失败，请稍后再试');
             }
         }
+
+        // 强制触发 hashchange 事件
+        window.dispatchEvent(new Event('hashchange'));
     </script>
 </body>
 </html>
