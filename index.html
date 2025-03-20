@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+    <meta charset="UTF-8">
     <title>宜络的秘密留言板</title>
     <style>
         body {
             background-color: #000000;
             color: #ffffff;
-            font-family: 'Microsoft YaHei', sans-serif;
+            font-family: 'Arial', sans-serif;
             max-width: 800px;
             margin: 20px auto;
             padding: 0 20px;
@@ -16,10 +17,13 @@
             margin: 30px 0 10px;
             font-size: 2.2em;
         }
-        .title-underline {
-            border-bottom: 2px solid #444;
+        .rules {
+            color: #999;
             margin: 15px 0 25px;
-            width: 200px;
+            font-size: 0.95em;
+        }
+        #login {
+            margin: 20px 0;
         }
         #message {
             background-color: #1a1a1a;
@@ -30,21 +34,20 @@
             padding: 10px;
             margin: 10px 0;
         }
+        #message::placeholder {
+            color: #666;
+            font-style: italic;
+        }
         button {
             background-color: #333;
             color: white;
             border: 1px solid #666;
             padding: 8px 20px;
             cursor: pointer;
-            margin-bottom: 30px;
-            transition: opacity 0.3s;
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+            margin: 10px 0;
         }
         .comment {
-            border-left: 3px solid #666; /* 颜色更亮，提高对比度 */
+            border-left: 3px solid #666;
             padding: 12px 20px;
             margin: 20px 0;
             font-size: 0.9em;
@@ -54,174 +57,106 @@
             margin-bottom: 8px;
             font-size: 0.85em;
         }
-        .rules {
-            color: #999;
-            margin: 15px 0 25px;
-            font-size: 0.95em;
-        }
-        #loading {
-            display: none;
-            margin: 20px 0;
-            text-align: center;
-            color: #888;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .spinner {
-            border: 3px solid #444;
-            border-top-color: transparent;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 10px;
-        }
         .error {
             color: #ff4444;
             padding: 15px;
             border: 1px solid #ff4444;
             margin: 20px 0;
         }
-        #message::placeholder {
-            color: #666;
-            font-style: italic;
-        }
     </style>
 </head>
 <body>
     <h1>宜络的秘密留言板</h1>
     <div class="rules">
-        <p>不错啊，你居然能找到这里来。</p>
-        <p>说点什么吧。</p>
-        <p>• 只许说一句（140字以内）</p>
-        <p>• 发送后不可修改或删除（这玩意比石碑耐用）</p>
+        <p>欢迎来到秘密留言板！</p>
+        <p>请先登录，然后留下你的留言吧。</p>
+        <p>• 留言限制 140 字</p>
+        <p>• 每人只能提交一次</p>
+        <p>• 凌晨 1 点到 6 点发送的留言会显示 🌙</p>
     </div>
-    <div class="title-underline"></div>
 
+    <div id="login">
+        <button onclick="login()">通过 GitHub 登录</button>
+    </div>
     <div id="form" style="display: none;">
         <textarea id="message" placeholder="畅所欲言..." maxlength="140"></textarea>
-        <button onclick="submitMessage()" id="submitBtn">发送</button>
+        <button onclick="submitMessage()">发送</button>
     </div>
-
     <div id="comments"></div>
-    <div id="loading">
-        <div class="spinner"></div> 正在加载...
-    </div>
     <div id="errorMsg" class="error" style="display: none;"></div>
 
     <script>
-        // ========== 配置参数 ========== //
         const CLIENT_ID = 'Ov23livLf3n0TIOiFgMn';
         const REPO = 'yilo246/my-secret-board';
         const ISSUE_ID = 1;
+        let token = localStorage.getItem('github_token');
+        let user = null;
 
-        // ========== 系统核心 ========== //
-        let isSubmitting = false;
-        let errorTimeout = null;
-
-        async function checkAuth() {
-            showLoading();
-            try {
-                const code = new URLSearchParams(window.location.search).get('code');
-                if (code) {
-                    // 注意：这里需要通过后端代理完成 access_token 获取
-                    // 以下代码仅为示例，实际应由后端处理
-                    const tokenData = await fetch(
-                        `https://github.com/login/oauth/access_token?client_id=${CLIENT_ID}&code=${code}`,
-                        { method: 'POST', headers: { Accept: 'application/json' } }
-                    ).then(handleResponse);
-
-                    if (tokenData.access_token) {
-                        localStorage.setItem('github_token', tokenData.access_token);
-                        window.location.href = window.location.pathname; // 移除查询参数
-                        return;
-                    }
-                }
-
-                if (!localStorage.getItem('github_token')) {
-                    window.location.href = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=public_repo`;
-                }
-            } catch (error) {
-                showError('登录失败，请稍后重试：' + error.message);
-            } finally {
-                hideLoading();
-            }
+        // 检查登录状态
+        if (token) {
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('form').style.display = 'block';
+            fetchUser();
+            loadComments();
         }
 
-        async function submitMessage() {
-            if (isSubmitting) return;
-            isSubmitting = true;
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = '发送中...'; // 更直观的反馈
-            showLoading();
+        // 登录
+        function login() {
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo&redirect_uri=http://localhost:3000/callback`;
+            window.location.href = authUrl;
+        }
 
+        // 获取用户信息
+        async function fetchUser() {
             try {
-                const token = localStorage.getItem('github_token');
-                const message = document.getElementById('message').value.trim();
-
-                if (!message) {
-                    showError('内容不能为空');
-                    return;
-                }
-
-                const user = await fetch('https://api.github.com/user', {
+                const res = await fetch('https://api.github.com/user', {
                     headers: { Authorization: `Bearer ${token}` }
-                }).then(handleResponse);
-
-                const comments = await fetch(
-                    `https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`
-                ).then(handleResponse);
-
-                if (comments.some(c => c.user.login === user.login)) {
-                    showError('你已经留言过了，每人只能留言一次');
-                    return;
-                }
-
-                const response = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                    method: 'POST',
-                    headers: { 
-                        Authorization: `token ${token}`, 
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ body: message })
                 });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    if (response.status === 429) {
-                        throw new Error('请求过于频繁，请稍后再试');
-                    }
-                    throw new Error(errorData.message || `HTTP错误 ${response.status}`);
-                }
-
-                await loadComments();
-                document.getElementById('message').value = '';
+                if (!res.ok) throw new Error('无法获取用户信息');
+                user = await res.json();
             } catch (error) {
-                if (error.message.includes('401')) {
-                    showError('认证失败，请重新登录');
-                    localStorage.removeItem('github_token');
-                    window.location.reload();
-                } else {
-                    showError('发送失败：' + error.message);
-                }
-            } finally {
-                isSubmitting = false;
-                submitBtn.disabled = false;
-                submitBtn.textContent = '发送';
-                hideLoading();
+                showError('获取用户信息失败：' + error.message);
+                localStorage.removeItem('github_token');
+                window.location.reload();
             }
         }
 
-        async function loadComments() {
-            showLoading();
-            try {
-                const comments = await fetch(
-                    `https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`
-                ).then(handleResponse);
+        // 提交留言
+        async function submitMessage() {
+            const message = document.getElementById('message').value.trim();
+            if (!message) return showError('留言不能为空！');
 
+            try {
+                // 检查是否已留言
+                const comments = await fetch(`http://localhost:3000/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).then(res => res.json());
+                if (comments.some(c => c.user.login === user.login)) {
+                    return showError('你已经留过言了，每人只能留言一次！');
+                }
+
+                // 提交留言
+                const res = await fetch(`http://localhost:3000/comment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ repo: REPO, issue: ISSUE_ID, content: message })
+                });
+                if (!res.ok) throw new Error('提交失败');
+                document.getElementById('message').value = '';
+                loadComments();
+            } catch (error) {
+                showError('提交失败：' + error.message);
+            }
+        }
+
+        // 加载留言
+        async function loadComments() {
+            try {
+                const res = await fetch(`http://localhost:3000/comments?repo=${REPO}&issue=${ISSUE_ID}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('加载留言失败');
+                const comments = await res.json();
                 document.getElementById('comments').innerHTML = comments.map(c => {
                     const date = new Date(c.created_at);
                     const localHour = date.getHours();
@@ -237,50 +172,34 @@
                     `;
                 }).join('');
             } catch (error) {
-                showError('加载评论失败：' + error.message);
-            } finally {
-                hideLoading();
+                showError('加载留言失败：' + error.message);
             }
         }
 
-        // ========== 辅助工具 ========== //
-        async function handleResponse(res) {
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.message || `HTTP错误 ${res.status}`);
-            }
-            return res.json();
-        }
-
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-        }
-
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-        }
-
+        // 显示错误
         function showError(msg) {
             const errorDiv = document.getElementById('errorMsg');
-            if (errorTimeout) {
-                clearTimeout(errorTimeout); // 清除之前的定时器
-            }
             errorDiv.style.display = 'block';
             errorDiv.textContent = msg;
-            errorTimeout = setTimeout(() => {
-                errorDiv.style.display = 'none';
-                errorTimeout = null;
-            }, 5000);
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
         }
 
-        // ========== 启动系统 ========== //
-        (async () => {
-            try {
-                await checkAuth();
-                document.getElementById('form').style.display = 'block';
-                await loadComments();
-            } catch (error) {
-                showError('系统异常：' + error.message);
+        // 处理 OAuth 回调
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code) {
+            fetch(`http://localhost:3000/callback?code=${code}`)
+                .then(res => res.text())
+                .then(t => {
+                    token = t;
+                    localStorage.setItem('github_token', token);
+                    window.location.search = '';
+                })
+                .catch(err => showError('登录失败：' + err.message));
+        }
+    </script>
+</body>
+</html>
             }
         })();
     </script>
