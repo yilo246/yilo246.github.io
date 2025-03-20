@@ -94,7 +94,7 @@
         }
         .shake-extra {
             display: inline-block;
-            animation: shakeExtra 0.06s; /* 抖动从0.08秒调整为0.06秒 */
+            animation: shakeExtra 0.05s;
         }
         @keyframes shakeExtra {
             0% { transform: translate(0, 0); }
@@ -102,6 +102,9 @@
             50% { transform: translate(3px, -2px); }
             75% { transform: translate(-2px, 1px); }
             100% { transform: translate(0, 0); }
+        }
+        .anonymous-user {
+            color: #98C379; /* Anonymous user颜色 */
         }
     </style>
 </head>
@@ -142,7 +145,7 @@
 
         function typeTitle() {
             if (titleIndex < titleText.length) {
-                titleElement.innerHTML = titleText.slice(0, titleIndex + 1); // 无光标
+                titleElement.innerHTML = titleText.slice(0, titleIndex + 1);
                 titleIndex++;
                 setTimeout(typeTitle, 50);
             } else if (titleIndex === titleText.length) {
@@ -150,18 +153,18 @@
                 setTimeout(() => {
                     titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
                     setTimeout(() => {
-                        titleElement.innerHTML = titleText + titleExtra; // 移除抖动
+                        titleElement.innerHTML = titleText + titleExtra;
                         setTimeout(() => {
                             typeMainText(); // 开始正文
-                        }, 1500); // “（1）”后停顿1.5秒
-                    }, 60); // 抖动持续0.06秒
+                        }, 1500); // “（1）”后停 recrystallization顿1.5秒
+                    }, 50); // 抖动持续0.05秒
                 }, 500); // “宜络的彩蛋”后停顿0.5秒
                 titleIndex++;
             }
         }
 
         // 正文打字机效果
-        const mainText = "不错啊，你居然能找到这里\n如果我没猜错的话，没多少人能像你这么细心。\n";
+        const mainText = "不错啊，你居然能找到这里\n事实上，我还没有想好彩蛋的内容\n";
         const typingText = document.getElementById("typingText");
         let mainIndex = 0;
         const punctuation = ["，", "。"];
@@ -193,7 +196,7 @@
             function submitMessage() {
                 const message = messageInput.value.trim();
                 if (message) {
-                    typingText.innerHTML += "Anonymous user: " + message + "\n"; // 普通格式
+                    typingText.innerHTML += '<span class="anonymous-user">Anonymous user: </span>' + message + "\n"; // 染色
                     messageInput.value = ""; // 清空输入框
                 }
             }
