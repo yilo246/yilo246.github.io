@@ -9,8 +9,8 @@
             color: #fff;
             font-family: 'Arial', 'Microsoft Yahei', sans-serif;
             max-width: 800px;
-            margin: 20px 0 20px 20px;
-            padding: 0;
+            margin: 0 auto;
+            padding: 20px 0 20px 100px;
             line-height: 1.6;
             font-size: 16px;
         }
@@ -52,7 +52,10 @@
         #postSection {
             position: fixed;
             bottom: 20px;
-            width: 760px;
+            width: 700px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding-left: 100px;
         }
         #submitBtn {
             background: #333;
@@ -62,8 +65,8 @@
             border-radius: 6px;
             font-size: 16px;
             cursor: pointer;
-            opacity: 0.5; /* 默认禁用样式 */
-            pointer-events: none; /* 默认禁用点击 */
+            opacity: 0.5;
+            pointer-events: none;
         }
         #submitBtn.enabled {
             opacity: 1;
@@ -76,7 +79,7 @@
             color: #fff;
             font-size: 1.1em;
             display: inline-block;
-            white-space: pre-wrap; /* 支持换行 */
+            white-space: pre-wrap;
         }
         .cursor {
             display: inline-block;
@@ -91,7 +94,7 @@
         }
         .shake-extra {
             display: inline-block;
-            animation: shakeExtra 0.1s;
+            animation: shakeExtra 0.06s; /* 抖动从0.08秒调整为0.06秒 */
         }
         @keyframes shakeExtra {
             0% { transform: translate(0, 0); }
@@ -139,30 +142,32 @@
 
         function typeTitle() {
             if (titleIndex < titleText.length) {
-                titleElement.innerHTML = titleText.slice(0, titleIndex + 1) + '<span class="cursor"></span>';
+                titleElement.innerHTML = titleText.slice(0, titleIndex + 1); // 无光标
                 titleIndex++;
                 setTimeout(typeTitle, 50);
             } else if (titleIndex === titleText.length) {
-                titleElement.innerHTML = titleText + '<span class="cursor"></span>';
+                titleElement.innerHTML = titleText;
                 setTimeout(() => {
                     titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
                     setTimeout(() => {
                         titleElement.innerHTML = titleText + titleExtra; // 移除抖动
                         setTimeout(() => {
                             typeMainText(); // 开始正文
-                        }, 2000); // “（1）”后停顿2秒
-                    }, 100); // 抖动持续0.1秒
+                        }, 1500); // “（1）”后停顿1.5秒
+                    }, 60); // 抖动持续0.06秒
                 }, 500); // “宜络的彩蛋”后停顿0.5秒
                 titleIndex++;
             }
         }
 
         // 正文打字机效果
-        const mainText = "不错啊，你居然能找到这里\n"; // \n表示换行，后续内容待你指定
+        const mainText = "不错啊，你居然能找到这里\n如果我没猜错的话，没多少人能像你这么细心。\n";
         const typingText = document.getElementById("typingText");
         let mainIndex = 0;
         const punctuation = ["，", "。"];
+        const brackets = ["（", "）"];
         const submitBtn = document.getElementById("submitBtn");
+        const messageInput = document.getElementById("message");
 
         function typeMainText() {
             if (mainIndex < mainText.length) {
@@ -171,8 +176,8 @@
                 mainIndex++;
                 if (currentChar === "\n") {
                     setTimeout(typeMainText, 750); // 换行后停顿0.75秒
-                } else if (punctuation.includes(currentChar)) {
-                    setTimeout(typeMainText, 500); // 标点后停顿0.5秒
+                } else if (punctuation.includes(currentChar) && !brackets.some(b => mainText.slice(0, mainIndex).endsWith(b))) {
+                    setTimeout(typeMainText, 500); // 标点后停顿0.5秒，除非紧跟括号
                 } else {
                     setTimeout(typeMainText, 50); // 正常字符50ms
                 }
@@ -185,11 +190,19 @@
 
         // 发送功能
         function enableSubmit() {
-            submitBtn.onclick = function() {
-                const message = document.getElementById("message").value.trim();
+            function submitMessage() {
+                const message = messageInput.value.trim();
                 if (message) {
-                    typingText.innerHTML += "user: " + message + "\n"; // 显示在下一行
-                    document.getElementById("message").value = ""; // 清空输入框
+                    typingText.innerHTML += "Anonymous user: " + message + "\n"; // 普通格式
+                    messageInput.value = ""; // 清空输入框
+                }
+            }
+
+            submitBtn.onclick = submitMessage; // 点击发送
+            messageInput.onkeydown = function(e) {
+                if (e.key === "Enter" && !e.shiftKey) { // 按Enter发送
+                    e.preventDefault();
+                    submitMessage();
                 }
             };
         }
