@@ -33,7 +33,7 @@
         #message {
             background: #1a1a1a;
             border: 1px solid #333;
-            color: # offff;
+            color: #fff; /* 修正颜色值 */
             padding: 15px;
             margin: 20px 0;
             width: 100%;
@@ -162,18 +162,8 @@
                 const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
                 console.log('跳转到:', authUrl);
 
-                // 尝试使用 window.location.assign 跳转
+                // 使用 window.location.assign 跳转
                 window.location.assign(authUrl);
-
-                // 如果 2 秒后仍未跳转，尝试 window.open
-                setTimeout(() => {
-                    if (window.location.href === authUrl) {
-                        console.log('window.location.assign 跳转成功');
-                    } else {
-                        console.warn('window.location.assign 跳转失败，尝试 window.open');
-                        window.open(authUrl, '_self');
-                    }
-                }, 2000);
             } catch (error) {
                 console.error('跳转失败:', error.message);
                 showError('跳转到 GitHub 认证页面失败，请重试');
