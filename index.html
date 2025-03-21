@@ -5,15 +5,15 @@
     <title>宜络的彩蛋（1）</title>
     <style>
         body {
-            background: #151515; /* 调整背景色为稍亮的灰色，但比对话框深 */
+            background: #000000;
             color: #fff;
             font-family: 'Arial', 'Microsoft Yahei', sans-serif;
-            max-width: 600px; /* 限制最大宽度 */
-            margin: 0 auto; /* 居中对齐 */
-            padding: 20px 20px 120px 20px; /* 增加底部padding以避免遮挡 */
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px 20px 120px 20px;
             line-height: 1.6;
             font-size: 16px;
-            position: relative; /* 为遮罩提供定位上下文 */
+            position: relative;
         }
         h1 {
             font-size: 2.8em;
@@ -26,10 +26,10 @@
         .rules {
             margin: 30px 0;
             padding: 20px 0;
-            width: 100%; /* 确保规则区域宽度受限 */
+            width: 100%;
         }
         #message {
-            background: #1a1a1a; /* 对话框背景色 */
+            background: #1a1a1a;
             border: 1px solid #333;
             color: #fff;
             padding: 15px;
@@ -54,15 +54,18 @@
             font-size: 0.9em;
         }
         #postSection {
-            position: fixed; /* 固定在屏幕底部 */
-            bottom: 0; /* 贴底 */
+            position: fixed;
+            bottom: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 600px; /* 与页面宽度一致 */
+            width: 600px;
             padding: 10px 20px;
             box-sizing: border-box;
-            background: #151515; /* 与body背景色一致 */
-            z-index: 10; /* 确保在内容上方 */
+            background: #000000;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
         }
         #submitBtn {
             background: #333;
@@ -74,6 +77,7 @@
             cursor: pointer;
             opacity: 0.5;
             pointer-events: none;
+            margin-top: 10px;
         }
         #submitBtn.enabled {
             opacity: 1;
@@ -87,15 +91,19 @@
             font-size: 1.1em;
             display: inline-block;
             white-space: pre-wrap;
-            overflow-wrap: break-word; /* 防止字符中间断开 */
-            width: 100%; /* 确保宽度受限 */
+            overflow-wrap: break-word;
+            width: 100%;
         }
         .anonymous-user {
             color: #98C379;
-            display: inline; /* 确保匿名用户和后续文本不换行 */
+            display: inline;
         }
         .anonymous-user::after {
-            content: " "; /* 在匿名用户后添加一个空格 */
+            content: " ";
+        }
+        .silence-message {
+            color: #888;
+            display: block;
         }
         .cursor {
             display: inline-block;
@@ -121,7 +129,7 @@
         }
         #contentWrapper {
             position: relative;
-            z-index: 1; /* 低于输入栏 */
+            z-index: 1;
         }
     </style>
 </head>
@@ -137,6 +145,8 @@
             <!-- 这里可以手动添加示例评论，如果需要 -->
         </div>
     </div>
+
+    <audio id="typeSound" src="N.mp3" preload="auto"></audio>
 
     <div id="postSection">
         <textarea 
@@ -181,30 +191,59 @@
             }
         }
 
-        const mainText = "不错啊，你居然能找到这里\n事实上，我还没有想好彩蛋的内容\n但你是第一批找到这个地方的人。所以这里就是我们的秘密基地了，代号为【藏身处（1）】\n";
-        const typingText = document.getElementById("typingText");
+        const mainText = [
+            { text: "不错啊，你居然能找到这里。但其实我还没有想好彩蛋内容，你来得太早了。我会在以后更新其他内容。\n", isN: false },
+            { text: "那么这里将作为我们的秘密基地，代号为【藏身处（1）】\n", isN: false },
+            { text: "那就先这样。我要去和DeepSeek讨论有趣问题了，晚点见~\n", isN: false },
+            { text: "（宜络退出了聊天）\n", isN: true }
+        ];
+        let currentSegmentIndex = 0;
         let mainIndex = 0;
+        const typingText = document.getElementById("typingText");
+        const typeSound = document.getElementById("typeSound");
         const punctuation = ["，", "。"];
         const brackets = ["（", "）"];
         const submitBtn = document.getElementById("submitBtn");
         const messageInput = document.getElementById("message");
+        let silenceTimeout = null;
 
         function typeMainText() {
-            if (mainIndex < mainText.length) {
-                typingText.innerHTML = mainText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
-                const currentChar = mainText.charAt(mainIndex);
+            if (currentSegmentIndex >= mainText.length) {
+                typingText.innerHTML = mainText.map(segment => segment.text).join('');
+                submitBtn.classList.add("enabled");
+                enableSubmit();
+                return;
+            }
+
+            const currentSegment = mainText[currentSegmentIndex];
+            const currentText = currentSegment.text;
+            const isN = currentSegment.isN;
+
+            if (mainIndex < currentText.length) {
+                typingText.innerHTML = mainText
+                    .slice(0, currentSegmentIndex)
+                    .map(segment => segment.text)
+                    .join('') + current WText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
+
+                const currentChar = currentText.charAt(mainIndex);
                 mainIndex++;
+
+                if (isN) {
+                    typeSound.currentTime = 0;
+                    typeSound.play();
+                }
+
                 if (currentChar === "\n") {
                     setTimeout(typeMainText, 750);
-                } else if (punctuation.includes(currentChar) && !brackets.some(b => mainText.slice(0, mainIndex).endsWith(b))) {
+                } else if (punctuation.includes(currentChar) && !brackets.some(b => currentText.slice(0, mainIndex).endsWith(b))) {
                     setTimeout(typeMainText, 500);
                 } else {
                     setTimeout(typeMainText, 40);
                 }
             } else {
-                typingText.innerHTML = mainText;
-                submitBtn.classList.add("enabled");
-                enableSubmit();
+                mainIndex = 0;
+                currentSegmentIndex++;
+                setTimeout(typeMainText, 750);
             }
         }
 
@@ -212,18 +251,31 @@
             function submitMessage() {
                 const message = messageInput.value.trim();
                 if (message) {
+                    if (silenceTimeout) {
+                        clearTimeout(silenceTimeout);
+                    }
+
                     typingText.innerHTML += '<span class="anonymous-user">匿名用户：</span>' + message + "\n";
                     messageInput.value = "";
-                    // 自动滚动到页面底部
+
                     window.scrollTo({
                         top: document.body.scrollHeight,
                         behavior: 'smooth'
                     });
+
+                    silenceTimeout = setTimeout(() => {
+                        typingText.innerHTML += '<span class="silence-message">（一片寂静，什么都没有发生）</span>';
+                        window.scrollTo({
+                            top: document.body.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                        silenceTimeout = null;
+                    }, 1000);
                 }
             }
 
             submitBtn.onclick = submitMessage;
-            messageInput.onkeydown = function(e) {
+            submitMessage.onkeydown = function(e) {
                 if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     submitMessage();
