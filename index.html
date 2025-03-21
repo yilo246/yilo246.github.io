@@ -2,54 +2,44 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>宜络的秘密留言板</title>
+    <title>宜络的彩蛋（1）</title>
     <style>
         body {
             background: #000000;
             color: #fff;
             font-family: 'Arial', 'Microsoft Yahei', sans-serif;
-            max-width: 800px;
-            margin: 20px 0 20px 20px;
-            padding: 0;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px 20px 120px 20px;
             line-height: 1.6;
+            font-size: 16px;
+            position: relative;
         }
         h1 {
-            font-size: 2.4em;
+            font-size: 2.8em;
             margin: 40px 0 20px;
             border-bottom: 2px solid #333;
             padding-bottom: 15px;
+            display: inline-block;
+            white-space: pre;
         }
         .rules {
             margin: 30px 0;
-            padding: 20px 20px 20px 0;
-        }
-        .rule-item {
-            color: #999;
-            margin: 15px 0;
-            padding-left: 0;
+            padding: 20px 0;
+            width: 100%;
         }
         #message {
             background: #1a1a1a;
             border: 1px solid #333;
             color: #fff;
             padding: 15px;
-            margin: 20px 0;
+            margin: 10px 0;
             width: 100%;
-            height: 120px;
+            height: 80px;
             border-radius: 6px;
             font-size: 16px;
-        }
-        button {
-            background: #333;
-            color: #fff;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        button:hover {
-            background: #444;
+            resize: vertical;
+            box-sizing: border-box;
         }
         .comment {
             background: #1a1a1a;
@@ -63,233 +53,243 @@
             margin-bottom: 12px;
             font-size: 0.9em;
         }
-        .error {
-            background: #2d0000;
-            color: #ff6666;
-            padding: 15px;
+        #postSection {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            background: #000000;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        #submitBtn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
             border-radius: 6px;
-            margin: 20px 0;
-            border: 1px solid #ff4444;
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.5;
+            pointer-events: none;
+            margin-top: 10px;
+        }
+        #submitBtn.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #submitBtn:hover.enabled {
+            background: #444;
+        }
+        #typingText {
+            color: #fff;
+            font-size: 1.1em;
+            display: inline-block;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            width: 100%;
+        }
+        .anonymous-user {
+            color: #98C379;
+            display: inline;
+        }
+        .anonymous-user::after {
+            content: " ";
+        }
+        .silence-message {
+            color: #888;
+            display: block;
+        }
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: #fff;
+            vertical-align: middle;
+            animation: blink 0.8s step-end infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .shake-extra {
+            display: inline-block;
+            animation: shakeExtra 0.05s;
+        }
+        @keyframes shakeExtra {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-3px, 2px); }
+            50% { transform: translate(3px, -2px); }
+            75% { transform: translate(-2px, 1px); }
+            100% { transform: translate(0, 0); }
+        }
+        #contentWrapper {
+            position: relative;
+            z-index: 1;
         }
     </style>
 </head>
 <body>
-    <h1>宜络的秘密留言板</h1>
-    
-    <div class="rules">
-        <p style="color: #fff; font-size: 1.1em;">不错啊，你居然能找到这里。来吧，说点什么</p>
-        <p class="rule-item">• 你只可以说一句，但上限是140个字</p>
-        <p class="rule-item">• 你的留言会被一直保存在这里。这玩意可比石碑耐用</p>
-        <p class="rule-item">• 凌晨 1 点到 6 点发送的留言前会显示 🌙，这是独属于夜猫子的标记</p>
+    <div id="contentWrapper">
+        <h1 id="titleText"></h1>
+        
+        <div class="rules">
+            <p id="typingText"></p>
+        </div>
+
+        <div id="commentsContainer">
+            <!-- 这里可以手动添加示例评论，如果需要 -->
+        </div>
     </div>
 
-    <div id="authSection">
-        <button id="authButton">通过 GitHub 认证</button>
-    </div>
+    <audio id="typeSound" src="N.mp3" preload="auto"></audio>
 
-    <div id="postSection" style="display: none;">
+    <div id="postSection">
         <textarea 
             id="message" 
-            placeholder="在这里写下你的故事...（别超过140字哦）" 
-            maxlength="140"
+            placeholder=""
+            maxlength="5000"
         ></textarea>
-        <button onclick="submitMessage()">永久保存</button>
+        <button id="submitBtn">发送</button>
     </div>
 
-    <div id="commentsContainer"></div>
-    <div id="errorDisplay" class="error" style="display: none;"></div>
-
     <script>
-        // 配置信息
-        const CLIENT_ID = 'Ov23li9e5kGBbzL2DVCV'; // 你的 Client ID
-        const CLIENT_SECRET = '32a7af2c8562298083767d5ca32d3c2b107a4429'; // 你的 Client Secret
-        const REPO = 'yilo246/my-secret-board'; // 你的用户名和留言仓库
-        const ISSUE_ID = 1; // 默认使用第一个 issue
+        const titleText = "宜络的彩蛋";
+        const titleExtra = "（1）";
+        const titleElement = document.getElementById("titleText");
+        let titleIndex = 0;
 
-        // 认证状态管理
-        let authState = {
-            token: localStorage.getItem('gh_token') || null,
-            user: null
+        function startWithCursor() {
+            titleElement.innerHTML = '<span class="cursor"></span>';
+            setTimeout(() => {
+                titleElement.innerHTML = '<span class="cursor"></span>';
+                setTimeout(typeTitle, 800);
+            }, 800);
+        }
+
+        function typeTitle() {
+            if (titleIndex < titleText.length) {
+                titleElement.innerHTML = titleText.slice(0, titleIndex + 1);
+                titleIndex++;
+                setTimeout(typeTitle, 50);
+            } else if (titleIndex === titleText.length) {
+                titleElement.innerHTML = titleText;
+                setTimeout(() => {
+                    titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
+                    setTimeout(() => {
+                        titleElement.innerHTML = titleText + titleExtra;
+                        setTimeout(() => {
+                            typeMainText();
+                        }, 1000);
+                    }, 50);
+                }, 500);
+                titleIndex++;
+            }
+        }
+
+        const mainText = [
+            { text: "不错啊，你居然能找到这里。但其实我还没有想好彩蛋内容，你来得太早了。我会在以后更新其他内容。\n", isN: false },
+            { text: "那么这里将作为我们的秘密基地，代号为【藏身处（1）】\n", isN: false },
+            { text: "那就先这样。我要去和DeepSeek讨论有趣问题了，晚点见~\n", isN: false },
+            { text: "（宜络退出了聊天）\n", isN: true }
+        ];
+        let currentSegmentIndex = 0;
+        let mainIndex = 0;
+        const typingText = document.getElementById("typingText");
+        const typeSound = document.getElementById("typeSound");
+        const punctuation = ["，", "。"];
+        const brackets = ["（", "）"];
+        const submitBtn = document.getElementById("submitBtn");
+        const messageInput = document.getElementById("message");
+        let silenceTimeout = null; // 存储setTimeout的ID
+
+        function typeMainText() {
+            if (currentSegmentIndex >= mainText.length) {
+                typingText.innerHTML = mainText.map(segment => segment.text).join('');
+                submitBtn.classList.add("enabled");
+                enableSubmit();
+                return;
+            }
+
+            const currentSegment = mainText[currentSegmentIndex];
+            const currentText = currentSegment.text;
+            const isN = currentSegment.isN;
+
+            if (mainIndex < currentText.length) {
+                typingText.innerHTML = mainText
+                    .slice(0, currentSegmentIndex)
+                    .map(segment => segment.text)
+                    .join('') + currentText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
+
+                const currentChar = currentText.charAt(mainIndex);
+                mainIndex++;
+
+                if (isN) {
+                    typeSound.currentTime = 0;
+                    typeSound.play();
+                }
+
+                if (currentChar === "\n") {
+                    setTimeout(typeMainText, 750);
+                } else if (punctuation.includes(currentChar) && !brackets.some(b => currentText.slice(0, mainIndex).endsWith(b))) {
+                    setTimeout(typeMainText, 500);
+                } else {
+                    setTimeout(typeMainText, 40);
+                }
+            } else {
+                mainIndex = 0;
+                currentSegmentIndex++;
+                setTimeout(typeMainText, 750);
+            }
+        }
+
+        function enableSubmit() {
+            function submitMessage() {
+                const message = messageInput.value.trim();
+                if (message) {
+                    // 清除之前的setTimeout（如果存在）
+                    if (silenceTimeout) {
+                        clearTimeout(silenceTimeout);
+                    }
+
+                    // 添加用户消息
+                    typingText.innerHTML += '<span class="anonymous-user">匿名用户：</span>' + message + "\n";
+                    messageInput.value = "";
+
+                    // 滚动到页面底部
+                    window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: 'smooth'
+                    });
+
+                    // 设置新的setTimeout，延迟1秒显示提示
+                    silenceTimeout = setTimeout(() => {
+                        typingText.innerHTML += '<span class="silence-message">（一片寂静，什么都没有发生）</span>\n';
+                        window.scrollTo({
+                            top: document.body.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                        silenceTimeout = null;
+                    }, 1000);
+                }
+            }
+
+            submitBtn.onclick = submitMessage;
+            messageInput.onkeydown = function(e) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submitMessage();
+                }
+            };
+        }
+
+        window.onload = function() {
+            startWithCursor();
         };
-
-        // 绑定按钮点击事件
-        document.getElementById('authButton').addEventListener('click', () => {
-            startAuthFlow();
-        });
-
-        // 初始化检查
-        window.addEventListener('load', () => {
-            checkAuthParams();
-        });
-
-        // 检查授权参数
-        function checkAuthParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            if (code) {
-                handleOAuthCallback(code);
-            } else if (authState.token) {
-                verifyToken();
-            }
-        }
-
-        // 启动认证流程
-        function startAuthFlow() {
-            const redirectUri = encodeURIComponent(window.location.origin);
-            const scope = encodeURIComponent('user');
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
-            window.location.assign(authUrl);
-        }
-
-        // 处理回调（授权码模式）
-        async function handleOAuthCallback(code) {
-            try {
-                const redirectUri = window.location.origin;
-                const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        client_id: CLIENT_ID,
-                        client_secret: CLIENT_SECRET,
-                        code: code,
-                        redirect_uri: redirectUri
-                    })
-                });
-
-                const tokenData = await tokenResponse.json();
-                if (tokenData.error) throw new Error(tokenData.error_description);
-
-                const accessToken = tokenData.access_token;
-                authState.token = accessToken;
-                localStorage.setItem('gh_token', accessToken);
-                
-                window.history.replaceState({}, document.title, window.location.pathname);
-                await fetchUserProfile();
-                showPostSection();
-                loadComments();
-            } catch (error) {
-                showError('认证失败，请重试');
-                clearAuth();
-            }
-        }
-
-        // 获取用户信息
-        async function fetchUserProfile() {
-            const res = await fetch('https://api.github.com/user', {
-                headers: { Authorization: `Bearer ${authState.token}` }
-            });
-            authState.user = await res.json();
-        }
-
-        // 验证 token 有效性
-        async function verifyToken() {
-            try {
-                const res = await fetch('https://api.github.com/user', {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                if (!res.ok) throw new Error('token 无效');
-                await fetchUserProfile();
-                showPostSection();
-                loadComments();
-            } catch (error) {
-                clearAuth();
-            }
-        }
-
-        // 提交留言
-        async function submitMessage() {
-            const message = document.getElementById('message').value.trim();
-            if (!message) return showError('写点什么再提交吧');
-
-            try {
-                const existing = await checkExistingComment();
-                if (existing) return showError('每人只能留言一次哦');
-                
-                await postNewComment(message);
-                document.getElementById('message').value = '';
-                loadComments();
-            } catch (error) {
-                showError('保存失败，请稍后再试');
-            }
-        }
-
-        // 检查现有留言
-        async function checkExistingComment() {
-            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                headers: { Authorization: `Bearer ${authState.token}` }
-            });
-            const comments = await res.json();
-            return comments.some(c => c.user.login === authState.user.login);
-        }
-
-        // 发布新留言
-        async function postNewComment(content) {
-            const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authState.token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ body: content })
-            });
-            if (!res.ok) throw new Error('提交失败');
-        }
-
-        // 加载留言
-        async function loadComments() {
-            try {
-                const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${ISSUE_ID}/comments?sort=created&direction=desc`, {
-                    headers: { Authorization: `Bearer ${authState.token}` }
-                });
-                if (!res.ok) throw new Error('加载失败');
-                
-                const comments = await res.json();
-                const html = comments.map(c => {
-                    const date = new Date(c.created_at);
-                    return `
-                        <div class="comment">
-                            <div class="comment-header">
-                                ${getMoonIcon(date)}
-                                ${date.toLocaleString('zh-CN')} · 
-                                <span style="color:#666;">@${c.user.login}</span>
-                            </div>
-                            <div>${c.body}</div>
-                        </div>
-                    `;
-                }).join('');
-                
-                document.getElementById('commentsContainer').innerHTML = html;
-            } catch (error) {
-                showError('留言加载失败');
-            }
-        }
-
-        // 辅助函数
-        function getMoonIcon(date) {
-            const hour = date.getHours();
-            return (hour >= 1 && hour < 6) ? '🌙 ' : '';
-        }
-
-        function showPostSection() {
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('postSection').style.display = 'block';
-        }
-
-        function clearAuth() {
-            localStorage.removeItem('gh_token');
-            authState = { token: null, user: null };
-            window.location.href = window.location.origin;
-        }
-
-        function showError(msg) {
-            const errorDiv = document.getElementById('errorDisplay');
-            errorDiv.textContent = msg;
-            errorDiv.style.display = 'block';
-            setTimeout(() => errorDiv.style.display = 'none', 5000);
-        }
     </script>
 </body>
 </html>
