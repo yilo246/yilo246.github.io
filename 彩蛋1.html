@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>宜络的彩蛋（1）</title>
+    <style>
+        body {
+            background: #151515; /* 调整背景色为稍亮的灰色，但比对话框深 */
+            color: #fff;
+            font-family: 'Arial', 'Microsoft Yahei', sans-serif;
+            max-width: 600px; /* 限制最大宽度 */
+            margin: 0 auto; /* 居中对齐 */
+            padding: 20px 20px 120px 20px; /* 增加底部padding以避免遮挡 */
+            line-height: 1.6;
+            font-size: 16px;
+            position: relative; /* 为遮罩提供定位上下文 */
+        }
+        h1 {
+            font-size: 2.8em;
+            margin: 40px 0 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            display: inline-block;
+            white-space: pre;
+        }
+        .rules {
+            margin: 30px 0;
+            padding: 20px 0;
+            width: 100%; /* 确保规则区域宽度受限 */
+        }
+        #message {
+            background: #1a1a1a; /* 对话框背景色 */
+            border: 1px solid #333;
+            color: #fff;
+            padding: 15px;
+            margin: 10px 0;
+            width: 100%;
+            height: 80px;
+            border-radius: 6px;
+            font-size: 16px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .comment {
+            background: #1a1a1a;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+            border-left: 4px solid #333;
+        }
+        .comment-header {
+            color: #888;
+            margin-bottom: 12px;
+            font-size: 0.9em;
+        }
+        #postSection {
+            position: fixed; /* 固定在屏幕底部 */
+            bottom: 0; /* 贴底 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px; /* 与页面宽度一致 */
+            padding: 10px 20px;
+            box-sizing: border-box;
+            background: #151515; /* 与body背景色一致 */
+            z-index: 10; /* 确保在内容上方 */
+        }
+        #submitBtn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        #submitBtn.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #submitBtn:hover.enabled {
+            background: #444;
+        }
+        #typingText {
+            color: #fff;
+            font-size: 1.1em;
+            display: inline-block;
+            white-space: pre-wrap;
+            overflow-wrap: break-word; /* 防止字符中间断开 */
+            width: 100%; /* 确保宽度受限 */
+        }
+        .anonymous-user {
+            color: #98C379;
+            display: inline; /* 确保匿名用户和后续文本不换行 */
+        }
+        .anonymous-user::after {
+            content: " "; /* 在匿名用户后添加一个空格 */
+        }
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: #fff;
+            vertical-align: middle;
+            animation: blink 0.8s step-end infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .shake-extra {
+            display: inline-block;
+            animation: shakeExtra 0.05s;
+        }
+        @keyframes shakeExtra {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-3px, 2px); }
+            50% { transform: translate(3px, -2px); }
+            75% { transform: translate(-2px, 1px); }
+            100% { transform: translate(0, 0); }
+        }
+        #contentWrapper {
+            position: relative;
+            z-index: 1; /* 低于输入栏 */
+        }
+    </style>
+</head>
+<body>
+    <div id="contentWrapper">
+        <h1 id="titleText"></h1>
+        
+        <div class="rules">
+            <p id="typingText"></p>
+        </div>
+
+        <div id="commentsContainer">
+            <!-- 这里可以手动添加示例评论，如果需要 -->
+        </div>
+    </div>
+
+    <div id="postSection">
+        <textarea 
+            id="message" 
+            placeholder=""
+            maxlength="5000"
+        ></textarea>
+        <button id="submitBtn">发送</button>
+    </div>
+
+    <script>
+        const titleText = "宜络的彩蛋";
+        const titleExtra = "（1）";
+        const titleElement = document.getElementById("titleText");
+        let titleIndex = 0;
+
+        function startWithCursor() {
+            titleElement.innerHTML = '<span class="cursor"></span>';
+            setTimeout(() => {
+                titleElement.innerHTML = '<span class="cursor"></span>';
+                setTimeout(typeTitle, 800);
+            }, 800);
+        }
+
+        function typeTitle() {
+            if (titleIndex < titleText.length) {
+                titleElement.innerHTML = titleText.slice(0, titleIndex + 1);
+                titleIndex++;
+                setTimeout(typeTitle, 50);
+            } else if (titleIndex === titleText.length) {
+                titleElement.innerHTML = titleText;
+                setTimeout(() => {
+                    titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
+                    setTimeout(() => {
+                        titleElement.innerHTML = titleText + titleExtra;
+                        setTimeout(() => {
+                            typeMainText();
+                        }, 1000);
+                    }, 50);
+                }, 500);
+                titleIndex++;
+            }
+        }
+
+        const mainText = "不错啊，你居然能找到这里\n事实上，我还没有想好彩蛋的内容\n但你是第一批找到这个地方的人。所以这里就是我们的秘密基地了，代号为【藏身处（1）】\n";
+        const typingText = document.getElementById("typingText");
+        let mainIndex = 0;
+        const punctuation = ["，", "。"];
+        const brackets = ["（", "）"];
+        const submitBtn = document.getElementById("submitBtn");
+        const messageInput = document.getElementById("message");
+
+        function typeMainText() {
+            if (mainIndex < mainText.length) {
+                typingText.innerHTML = mainText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
+                const currentChar = mainText.charAt(mainIndex);
+                mainIndex++;
+                if (currentChar === "\n") {
+                    setTimeout(typeMainText, 750);
+                } else if (punctuation.includes(currentChar) && !brackets.some(b => mainText.slice(0, mainIndex).endsWith(b))) {
+                    setTimeout(typeMainText, 500);
+                } else {
+                    setTimeout(typeMainText, 40);
+                }
+            } else {
+                typingText.innerHTML = mainText;
+                submitBtn.classList.add("enabled");
+                enableSubmit();
+            }
+        }
+
+        function enableSubmit() {
+            function submitMessage() {
+                const message = messageInput.value.trim();
+                if (message) {
+                    typingText.innerHTML += '<span class="anonymous-user">匿名用户：</span>' + message + "\n";
+                    messageInput.value = "";
+                    // 自动滚动到页面底部
+                    window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+
+            submitBtn.onclick = submitMessage;
+            messageInput.onkeydown = function(e) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submitMessage();
+                }
+            };
+        }
+
+        window.onload = function() {
+            startWithCursor();
+        };
+    </script>
+</body>
+</html>
