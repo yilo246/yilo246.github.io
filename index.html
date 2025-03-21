@@ -41,18 +41,6 @@
             resize: vertical;
             box-sizing: border-box;
         }
-        .comment {
-            background: #1a1a1a;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 8px;
-            border-left: 4px solid #333;
-        }
-        .comment-header {
-            color: #888;
-            margin-bottom: 12px;
-            font-size: 0.9em;
-        }
         #postSection {
             position: fixed;
             bottom: 0;
@@ -136,13 +124,8 @@
 <body>
     <div id="contentWrapper">
         <h1 id="titleText"></h1>
-        
         <div class="rules">
             <p id="typingText"></p>
-        </div>
-
-        <div id="commentsContainer">
-            <!-- 这里可以手动添加示例评论，如果需要 -->
         </div>
     </div>
 
@@ -223,7 +206,7 @@
                 typingText.innerHTML = mainText
                     .slice(0, currentSegmentIndex)
                     .map(segment => segment.text)
-                    .join('') + current WText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
+                    .join('') + currentText.slice(0, mainIndex + 1) + '<span class="cursor"></span>';
 
                 const currentChar = currentText.charAt(mainIndex);
                 mainIndex++;
@@ -275,7 +258,7 @@
             }
 
             submitBtn.onclick = submitMessage;
-            submitMessage.onkeydown = function(e) {
+            messageInput.onkeydown = function(e) {
                 if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     submitMessage();
