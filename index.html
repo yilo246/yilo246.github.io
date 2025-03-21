@@ -115,14 +115,26 @@
             75% { transform: translate(-2px, 1px); }
             100% { transform: translate(0, 0); }
         }
-        #contentWrapper {
-            position: relative;
-            z-index: 1;
+        #muteBtn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 20;
+        }
+        #muteBtn:hover {
+            background: #444;
         }
     </style>
 </head>
 <body>
-    <div id="contentWrapper">
+    <div>
         <h1 id="titleText"></h1>
         <div class="rules">
             <p id="typingText"></p>
@@ -130,6 +142,7 @@
     </div>
 
     <audio id="typeSound" src="N.mp3" preload="auto"></audio>
+    <button id="muteBtn" title="切换静音"></button>
 
     <div id="postSection">
         <textarea 
@@ -156,7 +169,7 @@
 
         function typeTitle() {
             if (titleIndex < titleText.length) {
-                titleElement.innerHTML = titleText.slice(0, titleIndex + 1);
+                titleElement.innerHTML = titleText.slice(0, titleIndex + 1) + '<span class="cursor"></span>';
                 titleIndex++;
                 setTimeout(typeTitle, 50);
             } else if (titleIndex === titleText.length) {
@@ -165,9 +178,7 @@
                     titleElement.innerHTML = titleText + '<span class="shake-extra">' + titleExtra + '</span>';
                     setTimeout(() => {
                         titleElement.innerHTML = titleText + titleExtra;
-                        setTimeout(() => {
-                            typeMainText();
-                        }, 1000);
+                        setTimeout(typeMainText, 1000);
                     }, 50);
                 }, 500);
                 titleIndex++;
@@ -184,12 +195,27 @@
         let mainIndex = 0;
         const typingText = document.getElementById("typingText");
         const typeSound = document.getElementById("typeSound");
-        const punctuation = ["，", "。", "（", "）"];
-        const brackets = ["（", "）"];
+        const punctuation = ["，", "。", "（", "）", "【", "】", "~"];
+        const noPausePunctuation = ["（", "）", "【", "】"];
         const submitBtn = document.getElementById("submitBtn");
         const messageInput = document.getElementById("message");
         let silenceTimeout = null;
-        let submitCount = 0;
+        let muted = true; // 默认静音
+
+        const muteBtn = document.getElementById("muteBtn");
+        muteBtn.innerHTML = muted ? "🔇" : "🔊"; // 默认显示静音图标
+
+        muteBtn.onclick = function() {
+            muted = !muted;
+            muteBtn.innerHTML = muted ? "🔇" : "🔊";
+        };
+
+        function playSound() {
+            if (!muted) {
+                const newSound = typeSound.cloneNode();
+                newSound.play();
+            }
+        }
 
         function typeMainText() {
             if (currentSegmentIndex >= mainText.length) {
@@ -212,18 +238,19 @@
                 const currentChar = currentText.charAt(mainIndex);
                 mainIndex++;
 
-                // 修改后的逻辑：对 isN 为真的情况，每个字符（除了换行符）都播放音效
-                if (isN && currentChar !== "\n") {
-                    typeSound.currentTime = 0;
-                    typeSound.play();
+                // 音效逻辑：isN 为 true 时，只有非符号字符播放音效
+                if (isN && currentChar !== "\n" && !punctuation.includes(currentChar)) {
+                    playSound();
                 }
 
+                // 控制打字机效果的间隔
+                const typeSpeed = isN ? 80 : 40; // 被 N 标记的句子再慢一点（80ms）
                 if (currentChar === "\n") {
                     setTimeout(typeMainText, 750);
-                } else if (punctuation.includes(currentChar) && !brackets.some(b => currentText.slice(0, mainIndex).endsWith(b))) {
+                } else if (punctuation.includes(currentChar) && !noPausePunctuation.includes(currentChar)) {
                     setTimeout(typeMainText, 500);
                 } else {
-                    setTimeout(typeMainText, 40);
+                    setTimeout(typeMainText, typeSpeed);
                 }
             } else {
                 mainIndex = 0;
@@ -236,13 +263,10 @@
             function submitMessage() {
                 const message = messageInput.value.trim();
                 if (message) {
-                    if (silenceTimeout) {
-                        clearTimeout(silenceTimeout);
-                    }
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
 
                     typingText.innerHTML += '<span class="anonymous-user">匿名用户：</span>' + message + "\n";
                     messageInput.value = "";
-                    submitCount++;
 
                     window.scrollTo({
                         top: document.body.scrollHeight,
@@ -250,11 +274,7 @@
                     });
 
                     silenceTimeout = setTimeout(() => {
-                        if (submitCount === 5) {
-                            typingText.innerHTML += '<span class="silence-message">（真的没有其他内容了，我还没加）</span>';
-                        } else {
-                            typingText.innerHTML += '<span class="silence-message">（一片寂静，什么都没有发生）</span>';
-                        }
+                        typingText.innerHTML += '<span class="silence-message">（一片寂静，什么都没有发生）</span>';
                         window.scrollTo({
                             top: document.body.scrollHeight,
                             behavior: 'smooth'
