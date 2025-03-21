@@ -184,11 +184,12 @@
         let mainIndex = 0;
         const typingText = document.getElementById("typingText");
         const typeSound = document.getElementById("typeSound");
-        const punctuation = ["，", "。"];
+        const punctuation = ["，", "。", "（", "）"];
         const brackets = ["（", "）"];
         const submitBtn = document.getElementById("submitBtn");
         const messageInput = document.getElementById("message");
         let silenceTimeout = null;
+        let submitCount = 0;
 
         function typeMainText() {
             if (currentSegmentIndex >= mainText.length) {
@@ -211,7 +212,8 @@
                 const currentChar = currentText.charAt(mainIndex);
                 mainIndex++;
 
-                if (isN) {
+                // 修改后的逻辑：对 isN 为真的情况，每个字符（除了换行符）都播放音效
+                if (isN && currentChar !== "\n") {
                     typeSound.currentTime = 0;
                     typeSound.play();
                 }
@@ -240,6 +242,7 @@
 
                     typingText.innerHTML += '<span class="anonymous-user">匿名用户：</span>' + message + "\n";
                     messageInput.value = "";
+                    submitCount++;
 
                     window.scrollTo({
                         top: document.body.scrollHeight,
@@ -247,7 +250,11 @@
                     });
 
                     silenceTimeout = setTimeout(() => {
-                        typingText.innerHTML += '<span class="silence-message">（一片寂静，什么都没有发生）</span>';
+                        if (submitCount === 5) {
+                            typingText.innerHTML += '<span class="silence-message">（真的没有其他内容了，我还没加）</span>';
+                        } else {
+                            typingText.innerHTML += '<span class="silence-message">（一片寂静，什么都没有发生）</span>';
+                        }
                         window.scrollTo({
                             top: document.body.scrollHeight,
                             behavior: 'smooth'
@@ -267,6 +274,7 @@
         }
 
         window.onload = function() {
+            typeSound.load();
             startWithCursor();
         };
     </script>
